@@ -1,0 +1,42 @@
+from datetime import datetime, date, timezone
+from decimal import Decimal
+from sqlalchemy import String, DateTime, Date, Numeric, ForeignKey, Boolean
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from ..database import Base
+
+
+CATEGORIES = [
+    "Food & Dining",
+    "Shopping",
+    "Transport",
+    "Entertainment",
+    "Utilities",
+    "Health",
+    "Travel",
+    "Subscriptions",
+    "Income",
+    "Other",
+]
+
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
+    statement_id: Mapped[int | None] = mapped_column(ForeignKey("statements.id"))
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    description: Mapped[str] = mapped_column(String(500), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    transaction_type: Mapped[str] = mapped_column(String(20), default="debit")  # debit, credit
+    category: Mapped[str] = mapped_column(String(100), default="Other")
+    raw_category: Mapped[str | None] = mapped_column(String(100))  # original from Claude
+    confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    user: Mapped["User"] = relationship(back_populates="transactions")
+    account: Mapped["Account"] = relationship(back_populates="transactions")
+    statement: Mapped["Statement | None"] = relationship(back_populates="transactions")
