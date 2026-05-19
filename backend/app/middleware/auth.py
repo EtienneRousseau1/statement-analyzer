@@ -1,35 +1,34 @@
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
+from fastapi import Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from ..config import settings
 from ..database import get_db
 from ..models.user import User
-
-_bearer = HTTPBearer()
+from typing import Optional
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
+    x_user_email: Optional[str] = Header(None),
     db: Session = Depends(get_db),
 ) -> User:
-    token = credentials.credentials
-    try:
-        payload = jwt.decode(token, settings.nextauth_secret, algorithms=["HS256"])
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    """
+    Extract user from X-User-Email header (set by frontend).
+    This is a simplified auth flow for development.
+    In production, verify actual JWT tokens.
+    """
+    if not x_user_email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="X-User-Email header required"
+        )
 
-    email: str | None = payload.get("email")
-    if not email:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing email")
-
-    user = db.query(User).filter(User.email == email).first()
+    # Find user by email; create if doesn't exist (auto-upsert on first access)
+    user = db.query(User).filter(User.email == x_user_email).first()
     if not user:
-        # Upsert on first login
+        # This could happen if user logs in via OAuth but never hit an auth/me endpoint
+        # For now, create/trust them based on the header
         user = User(
-            email=email,
-            name=payload.get("name"),
-            google_id=payload.get("sub"),
+            email=x_user_email,
+            name=x_user_email.split("@")[0],  # Use part before @ as temporary name
         )
         db.add(user)
         db.commit()

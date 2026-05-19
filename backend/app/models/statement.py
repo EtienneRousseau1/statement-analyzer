@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import String, DateTime, ForeignKey
+from sqlalchemy import String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..database import Base
 
@@ -14,6 +14,7 @@ class Statement(Base):
     file_type: Mapped[str] = mapped_column(String(10), nullable=False)  # pdf, csv
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, parsed, confirmed, failed
     transaction_count: Mapped[int | None]
+    previews_json: Mapped[str | None] = mapped_column(Text)  # Cached JSON of transaction previews
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

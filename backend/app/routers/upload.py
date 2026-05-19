@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
+import json
+from datetime import datetime
 from ..database import get_db
 from ..middleware.auth import get_current_user
 from ..models.user import User
@@ -52,6 +54,19 @@ async def upload_statement(
     try:
         raw_text = extract_text_from_pdf(file_bytes) if ext == "pdf" else normalize_csv(file_bytes)
         previews = parse_statement(raw_text)
+        
+        # Cache previews as JSON
+        previews_data = [
+            {
+                "date": str(p.date),
+                "description": p.description,
+                "amount": str(p.amount),
+                "transaction_type": p.transaction_type,
+                "category": p.category,
+            }
+            for p in previews
+        ]
+        statement.previews_json = json.dumps(previews_data)
         statement.status = "parsed"
         statement.transaction_count = len(previews)
         db.commit()
@@ -81,10 +96,30 @@ def confirm_upload(
     if statement.status != "parsed":
         raise HTTPException(status_code=400, detail="Statement has not been parsed yet")
 
-    # Re-parse to get transactions (in a real app you'd cache the preview)
-    # For now, mark statement confirmed and return existing transactions if any
+    # Parse cached previews and insert as transactions
+    previews_data = json.loads(statement.previews_json or "[]")
+    
+    created_transactions = []
+    for preview in previews_data:
+        tx = Transaction(
+            user_id=current_user.id,
+            account_id=statement.account_id,
+            statement_id=statement.id,
+            date=preview["date"],
+            description=preview["description"],
+            amount=preview["amount"],
+            transaction_type=preview["transaction_type"],
+            category=preview["category"],
+            confirmed=True,
+        )
+        db.add(tx)
+        created_transactions.append(tx)
+    
     statement.status = "confirmed"
     db.commit()
-
-    saved = db.query(Transaction).filter(Transaction.statement_id == statement.id).all()
-    return saved
+    
+    # Refresh all to get IDs
+    for tx in created_transactions:
+        db.refresh(tx)
+    
+    return created_transactions

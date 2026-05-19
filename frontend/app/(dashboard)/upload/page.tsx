@@ -1,13 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DropZone from "@/components/upload/DropZone";
+import { apiFetch } from "@/lib/api";
 import { Account } from "@/types";
 
 async function getAccounts(): Promise<Account[]> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
   try {
-    const res = await fetch(`${apiUrl}/accounts`, { cache: "no-store" });
-    if (!res.ok) return [];
-    return res.json();
+    return await apiFetch<Account[]>("/accounts");
   } catch {
     return [];
   }

@@ -2,25 +2,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SpendingByCategory from "@/components/dashboard/SpendingByCategory";
 import MonthlyTrend from "@/components/dashboard/MonthlyTrend";
 import BudgetProgress from "@/components/dashboard/BudgetProgress";
+import { apiFetch } from "@/lib/api";
 import { DashboardSummary, BudgetStatus } from "@/types";
 
 async function getDashboard(): Promise<DashboardSummary | null> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
   try {
-    const res = await fetch(`${apiUrl}/dashboard/summary`, { cache: "no-store" });
-    if (!res.ok) return null;
-    return res.json();
+    return await apiFetch<DashboardSummary>("/dashboard/summary");
   } catch {
     return null;
   }
 }
 
 async function getBudgetStatus(): Promise<BudgetStatus[]> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
   try {
-    const res = await fetch(`${apiUrl}/budgets/status`, { cache: "no-store" });
-    if (!res.ok) return [];
-    return res.json();
+    return await apiFetch<BudgetStatus[]>("/budgets/status");
   } catch {
     return [];
   }

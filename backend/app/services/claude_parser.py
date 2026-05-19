@@ -1,11 +1,12 @@
 import json
 from datetime import date
 from decimal import Decimal
-import anthropic
+import google.generativeai as genai
 from ..config import settings
 from ..schemas.transaction import TransactionPreview
 
-_client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+# Initialize Gemini client
+genai.configure(api_key=settings.google_gemini_api_key)
 
 _SYSTEM_PROMPT = """You are a financial statement parser. Given raw text from a bank or credit card statement, extract every transaction and return them as a JSON array.
 
@@ -30,26 +31,25 @@ Example output:
 
 
 def parse_statement(raw_text: str) -> list[TransactionPreview]:
-    response = _client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=8192,
-        system=[
-            {
-                "type": "text",
-                "text": _SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
-        messages=[
-            {
-                "role": "user",
-                "content": f"Parse the following statement:\n\n{raw_text}",
-            }
-        ],
+    # Use Gemini Flash 2.0 for faster, cheaper processing
+    model = genai.GenerativeModel(
+        model_name="gemini-2.0-flash",
+        system_instruction=_SYSTEM_PROMPT,
+        generation_config={
+            "max_output_tokens": 4096,
+            "temperature": 0.2,  # Low temperature for consistent extraction
+        },
     )
 
-    raw_json = response.content[0].text.strip()
-    # Strip markdown fences if Claude adds them
+    # Truncate input to be more cost-efficient (last 50k chars should cover most statements)
+    truncated_text = raw_text[-50000:] if len(raw_text) > 50000 else raw_text
+
+    response = model.generate_content(
+        f"Parse the following statement:\n\n{truncated_text}"
+    )
+
+    raw_json = response.text.strip()
+    # Strip markdown fences if Gemini adds them
     if raw_json.startswith("```"):
         raw_json = raw_json.split("```")[1]
         if raw_json.startswith("json"):

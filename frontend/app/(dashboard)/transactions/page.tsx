@@ -1,13 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import TransactionTable from "@/components/transactions/TransactionTable";
+import { apiFetch } from "@/lib/api";
 import { Transaction } from "@/types";
 
 async function getTransactions(): Promise<Transaction[]> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
   try {
-    const res = await fetch(`${apiUrl}/transactions`, { cache: "no-store" });
-    if (!res.ok) return [];
-    return res.json();
+    return await apiFetch<Transaction[]>("/transactions");
   } catch {
     return [];
   }
