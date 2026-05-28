@@ -1,12 +1,16 @@
 import json
 from datetime import date
 from decimal import Decimal
-import google.generativeai as genai
+from google import genai
 from ..config import settings
 from ..schemas.transaction import TransactionPreview
 
-# Initialize Gemini client
-genai.configure(api_key=settings.google_gemini_api_key)
+# Ensure project is configured
+if not settings.google_cloud_project:
+    raise RuntimeError("GOOGLE_CLOUD_PROJECT must be set for Agent Platform Gemini parsing")
+
+# Initialize the google-genai client (uses Application Default Credentials locally)
+genai_client = genai.Client(project=settings.google_cloud_project, location=settings.google_cloud_location)
 
 _SYSTEM_PROMPT = """You are a financial statement parser. Given raw text from a bank or credit card statement, extract every transaction and return them as a JSON array.
 
@@ -31,24 +35,37 @@ Example output:
 
 
 def parse_statement(raw_text: str) -> list[TransactionPreview]:
-    # Use Gemini Flash 2.0 for faster, cheaper processing
-    model = genai.GenerativeModel(
-        model_name="gemini-2.0-flash",
-        system_instruction=_SYSTEM_PROMPT,
-        generation_config={
-            "max_output_tokens": 4096,
-            "temperature": 0.2,  # Low temperature for consistent extraction
-        },
-    )
+    # Use Gemini 3.1 Flash Lite via google-genai for a lower-cost parse
+    model = "gemini-3.1-flash-lite"
 
     # Truncate input to be more cost-efficient (last 50k chars should cover most statements)
     truncated_text = raw_text[-50000:] if len(raw_text) > 50000 else raw_text
 
-    response = model.generate_content(
-        f"Parse the following statement:\n\n{truncated_text}"
-    )
+    prompt = _SYSTEM_PROMPT + "\n\nParse the following statement:\n\n" + truncated_text
 
-    raw_json = response.text.strip()
+    # Call the model. The google-genai client uses ADC when available.
+    try:
+        response = genai_client.models.generate_content(
+            model=model,
+            contents=[prompt],
+            temperature=0.2,
+            max_output_tokens=4096,
+        )
+    except Exception as exc:
+        raise RuntimeError(f"LLM request failed: {exc}")
+
+    # Extract text from response with a few fallbacks
+    raw_json = None
+    if hasattr(response, "text") and response.text:
+        raw_json = response.text
+    else:
+        try:
+            # common response shape: response.candidates[0].content[0].text
+            raw_json = response.candidates[0].content[0].text
+        except Exception:
+            raw_json = str(response)
+
+    raw_json = raw_json.strip()
     # Strip markdown fences if Gemini adds them
     if raw_json.startswith("```"):
         raw_json = raw_json.split("```")[1]

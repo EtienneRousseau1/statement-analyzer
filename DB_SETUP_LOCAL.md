@@ -28,9 +28,6 @@ If it works, you'll see:
 From `backend/` directory:
 
 ```bash
-# Create initial migration from models
-alembic revision --autogenerate -m "init schema"
-
 # Apply migration
 alembic upgrade head
 ```
