@@ -6,7 +6,8 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://user:password@localhost:5432/statement_analyzer"
     nextauth_secret: str = "change-me-in-production"
-    google_gemini_api_key: str = ""
+    google_cloud_project: str = ""
+    google_cloud_location: str = "us-central1"
     frontend_url: str = "http://localhost:3000"
 
 

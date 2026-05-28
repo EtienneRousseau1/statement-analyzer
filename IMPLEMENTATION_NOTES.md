@@ -2,10 +2,10 @@
 
 ## What's Been Done
 
-### 1. ✅ Switched to Google Gemini Flash
-- Replaced Claude (`anthropic` library) with Google Generative AI (`google-generativeai`)
+### 1. ✅ Switched to Google Gemini Flash (Agent Platform)
+- Replaced Claude (`anthropic` library) with Google Gen AI SDK (`google-genai`) and Agent Platform (Gemini)
 - Updated `backend/requirements.txt`
-- Updated `backend/app/services/claude_parser.py` to use `gemini-2.0-flash`
+- Updated `backend/app/services/claude_parser.py` to use `gemini-3.1-flash-lite` via `google-genai`
 - Token limit reduced from 8192 to 4096 for cost efficiency
 - Input text truncated to 50k chars to reduce API cost
 - Temperature set to 0.2 for consistent extraction
@@ -33,14 +33,22 @@
 
 ## What You Need To Do (Next Steps)
 
-### Step 1: Get API Keys (5 min)
+### Step 1: Set Up ADC for Gemini (5 min)
 
-#### Google Gemini API Key
-1. Go to https://aistudio.google.com/app/apikey
-2. Click **Create API Key**
-3. Copy key to `backend/.env.local`:
+1. Install Google Cloud CLI: https://cloud.google.com/sdk/docs/install
+2. Authenticate Application Default Credentials:
+   ```bash
+   gcloud auth application-default login
    ```
-   GOOGLE_GEMINI_API_KEY=your-key-here
+3. Set your project:
+   ```bash
+   gcloud config set project <your-gcp-project-id>
+   ```
+4. Enable Vertex AI API in the project.
+5. Add to `backend/.env.local`:
+   ```
+   GOOGLE_CLOUD_PROJECT=<your-gcp-project-id>
+   GOOGLE_CLOUD_LOCATION=us-central1
    ```
 
 #### Google OAuth Credentials
@@ -104,10 +112,9 @@ Then open http://localhost:3000
 
 ## Files Changed
 
-### Backend
-- `requirements.txt` - Replaced `anthropic` with `google-generativeai`
-- `app/config.py` - Updated to use `GOOGLE_GEMINI_API_KEY`
-- `app/services/claude_parser.py` - Complete rewrite for Gemini API
+- `requirements.txt` - Replaced `anthropic` with `google-genai`
+- `app/config.py` - Updated to use Vertex AI project/location settings
+- `app/services/claude_parser.py` - Complete rewrite for Gemini Vertex AI API
 - `app/middleware/auth.py` - Simplified to use email header
 - `app/models/statement.py` - Added `previews_json` field
 - `app/routers/upload.py` - Updated to cache previews and persist transactions on confirm

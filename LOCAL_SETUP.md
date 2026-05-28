@@ -48,12 +48,11 @@ pip install -r requirements.txt
 ### Create Initial Database Migration
 
 ```bash
-# Generate migration from models
-alembic revision --autogenerate -m "init schema"
-
 # Apply migration to database
 alembic upgrade head
 ```
+
+The repo already includes the first Alembic migration, so you should only need `alembic upgrade head` unless you change the models later.
 
 ### Verify Schema
 
@@ -76,15 +75,38 @@ Edit `backend/.env` and update these values:
 ```env
 DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/statement_analyzer
 NEXTAUTH_SECRET=dev-secret-change-in-production-12345678901234567
-GOOGLE_GEMINI_API_KEY=<get-from-google-ai-studio>
+GOOGLE_CLOUD_PROJECT=<your-gcp-project-id>
+GOOGLE_CLOUD_LOCATION=us-central1
 FRONTEND_URL=http://localhost:3000
 ```
 
-### Get Google Gemini API Key
+### Set Up Gemini With Application Default Credentials (ADC)
 
-1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
-2. Click **Create API Key**
-3. Copy the key and paste it into your `.env`
+Gemini now runs through **Vertex AI** using ADC, so no API key is needed.
+
+1. Install the Google Cloud CLI if you do not already have it:
+   - https://cloud.google.com/sdk/docs/install
+2. Authenticate Application Default Credentials:
+
+```bash
+gcloud auth application-default login
+```
+
+3. Select your GCP project:
+
+```bash
+gcloud config set project <your-gcp-project-id>
+```
+
+4. Enable **Vertex AI API** in that same project.
+5. Put your project ID into `backend/.env`:
+
+```env
+GOOGLE_CLOUD_PROJECT=<your-gcp-project-id>
+GOOGLE_CLOUD_LOCATION=us-central1
+```
+
+6. Make sure the Google account you used for ADC has Vertex AI permission on the project.
 
 ## Step 3: Frontend Setup
 
@@ -113,17 +135,13 @@ AUTH_URL=http://localhost:3000
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com)
 2. Create a new project (or select existing)
-3. Enable **Google+ API**:
-   - Click **APIs & Services** → **Library**
-   - Search for "Google+ API"
-   - Click **Enable**
-4. Create OAuth Consent Screen:
+3. Create OAuth Consent Screen:
    - Click **APIs & Services** → **Consent Screen**
    - Select **External** → **Create**
    - Fill in app name: "Statement Analyzer"
    - Add your email as test user
    - **Save & Continue** through all steps
-5. Create OAuth Credentials:
+4. Create OAuth Credentials:
    - Click **Credentials** → **+ Create Credentials** → **OAuth client ID**
    - Select **Web application**
    - Add Authorized JavaScript origins: `http://localhost:3000`
@@ -193,10 +211,11 @@ You should see:
 - Check `X-User-Email` header is being sent (browser DevTools → Network tab)
 - Ensure `AUTH_SECRET` matches between frontend and backend
 
-### Gemini API errors
-- Verify API key is correct in `GOOGLE_GEMINI_API_KEY`
-- Check you have API key (not OAuth credentials)
-- Check quota on [Google AI Studio](https://aistudio.google.com/app/apikey)
+### Vertex AI / Gemini errors
+- Run `gcloud auth application-default login`
+- Confirm `GOOGLE_CLOUD_PROJECT` is set in `backend/.env`
+- Confirm Vertex AI API is enabled in that project
+- Make sure your ADC account has permission to use Vertex AI
 
 ## Reset Everything
 
