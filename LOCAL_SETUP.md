@@ -5,7 +5,7 @@
 Ensure you have installed:
 - Python 3.10+ (`python3 --version`)
 - Node.js 16+ (`node --version`)
-- PostgreSQL 14+ (`psql --version`)
+- PostgreSQL 16+ (`psql --version`)
 
 ## Step 1: Database Setup
 
@@ -18,6 +18,30 @@ psql -U postgres
 # Inside psql:
 CREATE DATABASE statement_analyzer;
 \q
+```
+
+If you prefer Docker (PostgreSQL 16):
+
+```bash
+docker rm -f statement-analyzer-postgres 2>/dev/null || true
+docker run --name statement-analyzer-postgres \
+   -e POSTGRES_USER=postgres \
+   -e POSTGRES_PASSWORD=postgres \
+   -e POSTGRES_DB=statement_analyzer \
+   -p 5432:5432 \
+   -d postgres:16
+```
+
+If `5432` is taken, use:
+
+```bash
+docker rm -f statement-analyzer-postgres 2>/dev/null || true
+docker run --name statement-analyzer-postgres \
+   -e POSTGRES_USER=postgres \
+   -e POSTGRES_PASSWORD=postgres \
+   -e POSTGRES_DB=statement_analyzer \
+   -p 5433:5432 \
+   -d postgres:16
 ```
 
 ### Verify Connection
@@ -70,7 +94,7 @@ Copy `.env.example` to `.env` (or `.env.local`):
 cp .env.example .env
 ```
 
-Edit `backend/.env` and update these values:
+Edit `backend/.env.local` and update these values:
 
 ```env
 DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/statement_analyzer
@@ -80,9 +104,15 @@ GOOGLE_CLOUD_LOCATION=us-central1
 FRONTEND_URL=http://localhost:3000
 ```
 
+If Docker is mapped to host port `5433`, use:
+
+```env
+DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5433/statement_analyzer
+```
+
 ### Set Up Gemini With Application Default Credentials (ADC)
 
-Gemini now runs through **Vertex AI** using ADC, so no API key is needed.
+Gemini now runs through **Agent Platform/Vertex API** using ADC, so no API key is needed.
 
 1. Install the Google Cloud CLI if you do not already have it:
    - https://cloud.google.com/sdk/docs/install
@@ -98,7 +128,7 @@ gcloud auth application-default login
 gcloud config set project <your-gcp-project-id>
 ```
 
-4. Enable **Vertex AI API** in that same project.
+4. Enable **aiplatform.googleapis.com** in that same project.
 5. Put your project ID into `backend/.env`:
 
 ```env
@@ -211,11 +241,11 @@ You should see:
 - Check `X-User-Email` header is being sent (browser DevTools → Network tab)
 - Ensure `AUTH_SECRET` matches between frontend and backend
 
-### Vertex AI / Gemini errors
+### Gemini errors
 - Run `gcloud auth application-default login`
 - Confirm `GOOGLE_CLOUD_PROJECT` is set in `backend/.env`
-- Confirm Vertex AI API is enabled in that project
-- Make sure your ADC account has permission to use Vertex AI
+- Confirm `aiplatform.googleapis.com` is enabled in that project
+- Make sure your ADC account has permission to use Agent Platform / Vertex API
 
 ## Reset Everything
 

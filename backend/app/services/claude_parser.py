@@ -9,8 +9,13 @@ from ..schemas.transaction import TransactionPreview
 if not settings.google_cloud_project:
     raise RuntimeError("GOOGLE_CLOUD_PROJECT must be set for Agent Platform Gemini parsing")
 
-# Initialize the google-genai client (uses Application Default Credentials locally)
-genai_client = genai.Client(project=settings.google_cloud_project, location=settings.google_cloud_location)
+# Initialize the google-genai client in Vertex/Agent Platform mode.
+# This uses Application Default Credentials and GOOGLE_CLOUD_PROJECT.
+genai_client = genai.Client(
+    vertexai=True,
+    project=settings.google_cloud_project,
+    location=settings.google_cloud_location,
+)
 
 _SYSTEM_PROMPT = """You are a financial statement parser. Given raw text from a bank or credit card statement, extract every transaction and return them as a JSON array.
 

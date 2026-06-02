@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,31 +17,55 @@ export default function BudgetsPage() {
   const [category, setCategory] = useState("");
   const [limit, setLimit] = useState("");
   const [saving, setSaving] = useState(false);
+  const { data: session, status } = useSession();
 
   const now = new Date();
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
   useEffect(() => {
-    fetch(`${API_URL}/budgets/status?month=${month}&year=${year}`)
+    const email = session?.user?.email;
+    if (status !== "authenticated" || !email) {
+      setBudgets([]);
+      return;
+    }
+
+    fetch(`${API_URL}/budgets/status?month=${month}&year=${year}`, {
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Email": email,
+      },
+    })
       .then((r) => r.json())
-      .then(setBudgets)
-      .catch(() => {});
-  }, [month, year]);
+      .then((data) => setBudgets(Array.isArray(data) ? data : []))
+      .catch(() => setBudgets([]));
+  }, [month, year, session?.user?.email, status]);
 
   const handleSave = async () => {
-    if (!category || !limit) return;
+    const email = session?.user?.email;
+    if (!category || !limit || status !== "authenticated" || !email) return;
     setSaving(true);
-    await fetch(`${API_URL}/budgets`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category, monthly_limit: parseFloat(limit), month, year }),
-    });
-    const updated = await fetch(`${API_URL}/budgets/status?month=${month}&year=${year}`).then((r) => r.json());
-    setBudgets(updated);
-    setCategory("");
-    setLimit("");
-    setSaving(false);
+    try {
+      await fetch(`${API_URL}/budgets`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Email": email,
+        },
+        body: JSON.stringify({ category, monthly_limit: parseFloat(limit), month, year }),
+      });
+      const updated = await fetch(`${API_URL}/budgets/status?month=${month}&year=${year}`, {
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Email": email,
+        },
+      }).then((r) => r.json());
+      setBudgets(Array.isArray(updated) ? updated : []);
+      setCategory("");
+      setLimit("");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

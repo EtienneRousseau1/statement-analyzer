@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DropZone from "@/components/upload/DropZone";
 import { apiFetch } from "@/lib/api";
 import { Account } from "@/types";
+import { auth } from "@/auth";
 
 async function getAccounts(): Promise<Account[]> {
   try {
@@ -12,7 +13,9 @@ async function getAccounts(): Promise<Account[]> {
 }
 
 export default async function UploadPage() {
+  const session = await auth();
   const accounts = await getAccounts();
+  const userEmail = session?.user?.email ?? "";
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
@@ -27,7 +30,7 @@ export default async function UploadPage() {
               You need to add an account before uploading. (Account management coming soon — for now add one via the API.)
             </p>
           ) : (
-            <DropZone accounts={accounts} />
+            <DropZone accounts={accounts} userEmail={userEmail} />
           )}
         </CardContent>
       </Card>

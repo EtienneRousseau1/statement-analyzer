@@ -9,9 +9,10 @@ import { clsx } from "clsx";
 
 interface Props {
   accounts: Account[];
+  userEmail: string;
 }
 
-export default function DropZone({ accounts }: Props) {
+export default function DropZone({ accounts, userEmail }: Props) {
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [accountId, setAccountId] = useState<string>("");
@@ -38,7 +39,13 @@ export default function DropZone({ accounts }: Props) {
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-      const res = await fetch(`${apiUrl}/upload`, { method: "POST", body: form });
+      const res = await fetch(`${apiUrl}/upload`, {
+        method: "POST",
+        headers: {
+          "X-User-Email": userEmail,
+        },
+        body: form,
+      });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.detail ?? "Upload failed");
@@ -57,7 +64,10 @@ export default function DropZone({ accounts }: Props) {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
     await fetch(`${apiUrl}/upload/confirm`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Email": userEmail,
+      },
       body: JSON.stringify({ statement_id: result.statement.id }),
     });
     setStatus("confirmed");
