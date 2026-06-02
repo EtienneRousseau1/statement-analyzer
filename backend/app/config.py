@@ -10,7 +10,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://user:password@localhost:5432/statement_analyzer"
     nextauth_secret: str = "change-me-in-production"
     google_cloud_project: str = ""
-    google_cloud_location: str = "us-central1"
+    # Gemini / google-genai settings
+    genai_model: str = "gemini-3.1-flash-lite"
+    genai_api_key: str | None = None
     frontend_url: str = "http://localhost:3000"
 
 

@@ -53,6 +53,8 @@ async def upload_statement(
 
     try:
         raw_text = extract_text_from_pdf(file_bytes) if ext == "pdf" else normalize_csv(file_bytes)
+        if not raw_text.strip():
+            raise HTTPException(status_code=400, detail="No extractable text found in the uploaded file")
         previews = parse_statement(raw_text)
         
         # Cache previews as JSON
@@ -71,6 +73,10 @@ async def upload_statement(
         statement.transaction_count = len(previews)
         db.commit()
     except Exception as e:
+        if isinstance(e, HTTPException):
+            statement.status = "failed"
+            db.commit()
+            raise e
         statement.status = "failed"
         db.commit()
         raise HTTPException(status_code=500, detail=f"Parsing failed: {str(e)}")
