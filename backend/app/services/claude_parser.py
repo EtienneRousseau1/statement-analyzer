@@ -53,8 +53,10 @@ def parse_statement(raw_text: str) -> list[TransactionPreview]:
         response = genai_client.models.generate_content(
             model=model,
             contents=[prompt],
-            temperature=0.2,
-            max_output_tokens=4096,
+            config={
+                "temperature": 0.2,
+                "max_output_tokens": 4096,
+            },
         )
     except Exception as exc:
         raise RuntimeError(f"LLM request failed: {exc}")
