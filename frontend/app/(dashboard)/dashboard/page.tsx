@@ -32,21 +32,21 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-sm font-medium text-gray-500">Spent This Month</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500">Spent All Time</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-gray-900">
-              ${parseFloat(summary?.total_spent_this_month ?? "0").toFixed(2)}
+              ${parseFloat(summary?.total_spent_all_time ?? "0").toFixed(2)}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-sm font-medium text-gray-500">Income This Month</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500">Spent This Month</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-green-600">
-              ${parseFloat(summary?.total_income_this_month ?? "0").toFixed(2)}
+            <p className="text-2xl font-bold text-indigo-600">
+              ${parseFloat(summary?.total_spent_this_month ?? "0").toFixed(2)}
             </p>
           </CardContent>
         </Card>
@@ -55,7 +55,7 @@ export default async function DashboardPage() {
             <CardTitle className="text-sm font-medium text-gray-500">Transactions</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-gray-900">{summary?.transaction_count_this_month ?? 0}</p>
+            <p className="text-2xl font-bold text-gray-900">{summary?.transaction_count_all_time ?? 0}</p>
           </CardContent>
         </Card>
       </div>
@@ -67,7 +67,7 @@ export default async function DashboardPage() {
             <CardTitle className="text-base">Spending by Category</CardTitle>
           </CardHeader>
           <CardContent>
-            <SpendingByCategory data={summary?.by_category ?? []} />
+            <SpendingByCategory data={summary?.by_category_all_time ?? summary?.by_category ?? []} />
           </CardContent>
         </Card>
         <Card>

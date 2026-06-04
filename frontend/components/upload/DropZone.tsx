@@ -19,6 +19,7 @@ export default function DropZone({ accounts, userEmail }: Props) {
   const [status, setStatus] = useState<"idle" | "uploading" | "preview" | "confirmed" | "error">("idle");
   const [result, setResult] = useState<UploadResponse | null>(null);
   const [error, setError] = useState("");
+  const [errorKind, setErrorKind] = useState<"error" | "warning">("error");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleDrop = (e: React.DragEvent) => {
@@ -32,6 +33,7 @@ export default function DropZone({ accounts, userEmail }: Props) {
     if (!file || !accountId) return;
     setStatus("uploading");
     setError("");
+    setErrorKind("error");
 
     const form = new FormData();
     form.append("file", file);
@@ -47,8 +49,15 @@ export default function DropZone({ accounts, userEmail }: Props) {
         body: form,
       });
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail ?? "Upload failed");
+        const err = await res.json().catch(() => ({}));
+        const detail = err.detail ?? "Upload failed";
+        if (res.status === 409) {
+          setError(detail);
+          setErrorKind("warning");
+          setStatus("error");
+          return;
+        }
+        throw new Error(detail);
       }
       const data: UploadResponse = await res.json();
       setResult(data);
@@ -171,7 +180,7 @@ export default function DropZone({ accounts, userEmail }: Props) {
       </div>
 
       {status === "error" && (
-        <div className="flex items-center gap-2 text-red-600 text-sm">
+        <div className={clsx("flex items-center gap-2 text-sm", errorKind === "warning" ? "text-amber-600" : "text-red-600") }>
           <AlertCircle size={16} />
           {error}
         </div>

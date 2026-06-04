@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 import json
+import hashlib
 from datetime import datetime
 from ..database import get_db
 from ..middleware.auth import get_current_user
@@ -40,11 +41,27 @@ async def upload_statement(
     if ext not in ("pdf", "csv"):
         raise HTTPException(status_code=415, detail="Only PDF and CSV files are supported")
 
+    file_hash = hashlib.sha256(file_bytes).hexdigest()
+    duplicate_statement = (
+        db.query(Statement)
+        .filter(Statement.user_id == current_user.id, Statement.file_hash == file_hash)
+        .first()
+    )
+    if duplicate_statement:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Duplicate upload detected: this file was already uploaded as statement #{duplicate_statement.id} "
+                f"({duplicate_statement.filename})"
+            ),
+        )
+
     statement = Statement(
         user_id=current_user.id,
         account_id=account_id,
         filename=filename,
         file_type=ext,
+        file_hash=file_hash,
         status="pending",
     )
     db.add(statement)

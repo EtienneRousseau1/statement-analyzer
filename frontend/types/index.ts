@@ -74,10 +74,14 @@ export interface MonthlyTotal {
 export interface DashboardSummary {
   total_spent_this_month: string;
   total_income_this_month: string;
+  total_spent_all_time: string;
+  total_income_all_time: string;
   by_category: CategoryTotal[];
+  by_category_all_time: CategoryTotal[];
   monthly_trend: MonthlyTotal[];
   account_count: number;
   transaction_count_this_month: number;
+  transaction_count_all_time: number;
 }
 
 export const CATEGORIES = [

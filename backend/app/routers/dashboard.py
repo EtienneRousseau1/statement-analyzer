@@ -27,10 +27,14 @@ class MonthlyTotal(BaseModel):
 class DashboardSummary(BaseModel):
     total_spent_this_month: Decimal
     total_income_this_month: Decimal
+    total_spent_all_time: Decimal
+    total_income_all_time: Decimal
     by_category: list[CategoryTotal]
+    by_category_all_time: list[CategoryTotal]
     monthly_trend: list[MonthlyTotal]
     account_count: int
     transaction_count_this_month: int
+    transaction_count_all_time: int
 
 
 @router.get("/summary", response_model=DashboardSummary)
@@ -40,34 +44,62 @@ def summary(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    base = db.query(Transaction).filter(
+    all_confirmed = db.query(Transaction).filter(
         Transaction.user_id == current_user.id,
+        Transaction.confirmed.is_(True),
+    )
+
+    month_base = all_confirmed.filter(
         func.extract("month", Transaction.date) == month,
         func.extract("year", Transaction.date) == year,
     )
 
-    total_spent = (
-        base.filter(Transaction.transaction_type == "debit")
+    total_spent_month = (
+        month_base.filter(Transaction.transaction_type == "debit")
         .with_entities(func.sum(Transaction.amount))
         .scalar()
     ) or Decimal("0")
 
-    total_income = (
-        base.filter(Transaction.transaction_type == "credit")
+    total_income_month = (
+        month_base.filter(Transaction.transaction_type == "credit")
         .with_entities(func.sum(Transaction.amount))
         .scalar()
     ) or Decimal("0")
 
-    tx_count = base.count()
+    total_spent_all_time = (
+        all_confirmed.filter(Transaction.transaction_type == "debit")
+        .with_entities(func.sum(Transaction.amount))
+        .scalar()
+    ) or Decimal("0")
+
+    total_income_all_time = (
+        all_confirmed.filter(Transaction.transaction_type == "credit")
+        .with_entities(func.sum(Transaction.amount))
+        .scalar()
+    ) or Decimal("0")
+
+    tx_count_month = month_base.count()
+    tx_count_all_time = all_confirmed.count()
 
     by_category_rows = (
-        base.filter(Transaction.transaction_type == "debit")
+        month_base.filter(Transaction.transaction_type == "debit")
         .with_entities(Transaction.category, func.sum(Transaction.amount))
         .group_by(Transaction.category)
         .order_by(func.sum(Transaction.amount).desc())
         .all()
     )
     by_category = [CategoryTotal(category=row[0], total=Decimal(str(row[1]))) for row in by_category_rows]
+
+    by_category_all_time_rows = (
+        all_confirmed.filter(Transaction.transaction_type == "debit")
+        .with_entities(Transaction.category, func.sum(Transaction.amount))
+        .group_by(Transaction.category)
+        .order_by(func.sum(Transaction.amount).desc())
+        .all()
+    )
+    by_category_all_time = [
+        CategoryTotal(category=row[0], total=Decimal(str(row[1]))) for row in by_category_all_time_rows
+    ]
 
     trend_rows = (
         db.query(
@@ -77,6 +109,7 @@ def summary(
         )
         .filter(
             Transaction.user_id == current_user.id,
+            Transaction.confirmed.is_(True),
             Transaction.transaction_type == "debit",
         )
         .group_by("yr", "mo")
@@ -92,10 +125,14 @@ def summary(
     account_count = db.query(Account).filter(Account.user_id == current_user.id).count()
 
     return DashboardSummary(
-        total_spent_this_month=Decimal(str(total_spent)),
-        total_income_this_month=Decimal(str(total_income)),
+        total_spent_this_month=Decimal(str(total_spent_month)),
+        total_income_this_month=Decimal(str(total_income_month)),
+        total_spent_all_time=Decimal(str(total_spent_all_time)),
+        total_income_all_time=Decimal(str(total_income_all_time)),
         by_category=by_category,
+        by_category_all_time=by_category_all_time,
         monthly_trend=monthly_trend,
         account_count=account_count,
-        transaction_count_this_month=tx_count,
+        transaction_count_this_month=tx_count_month,
+        transaction_count_all_time=tx_count_all_time,
     )
