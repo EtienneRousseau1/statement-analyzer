@@ -78,7 +78,7 @@ export default function CategoryTransactionsDialog({
         setError(err.message || "Failed to load payments");
       })
       .finally(() => setLoading(false));
-  }, [open, category, month, year, session?.user?.email, status]);
+  }, [open, category, month, year, transactionType, session?.user?.email, status]);
 
   const total = transactions.reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
 

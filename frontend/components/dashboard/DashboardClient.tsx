@@ -26,6 +26,7 @@ export default function DashboardClient() {
   const [budgets, setBudgets] = useState<BudgetStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<"debit" | "credit">("debit");
 
   useEffect(() => {
     const email = session?.user?.email;
@@ -136,7 +137,7 @@ export default function DashboardClient() {
           <CardContent>
             <SpendingByCategory
               data={summary?.by_category ?? []}
-              onCategoryClick={setSelectedCategory}
+              onCategoryClick={(cat) => { setSelectedType("debit"); setSelectedCategory(cat); }}
             />
           </CardContent>
         </Card>
@@ -148,7 +149,7 @@ export default function DashboardClient() {
           <CardContent>
             <SpendingByCategory
               data={summary?.income_by_category ?? []}
-              onCategoryClick={setSelectedCategory}
+              onCategoryClick={(cat) => { setSelectedType("credit"); setSelectedCategory(cat); }}
               valueLabel="Income"
             />
           </CardContent>
@@ -186,6 +187,7 @@ export default function DashboardClient() {
         month={month}
         year={year}
         open={selectedCategory !== null}
+        transactionType={selectedType}
         onOpenChange={(open) => {
           if (!open) setSelectedCategory(null);
         }}

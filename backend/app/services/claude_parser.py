@@ -23,6 +23,7 @@ Each transaction object must have exactly these fields:
 
 Rules:
 - Only extract from transaction sections (ACCOUNT ACTIVITY, TRANSACTIONS, PURCHASES, PAYMENTS, etc.); skip summaries, balances, rewards, interest charges, and marketing text
+- EXCLUDE any "Payment Thank You", "Payment - Thank You", "AutoPay Thank You", or similar card payment acknowledgment rows — these are not real transactions
 - Any transaction with description containing "zabace", "zaba", rent, lease, or apartment payment → category "Rent"
 - Ignore header rows, balance summaries, and non-transaction lines
 - Purchases/charges → transaction_type "debit"; payments to the card or refunds → transaction_type "credit"
@@ -85,10 +86,24 @@ _CC_PAYMENT_KEYWORDS = [
     "online payment to",
 ]
 
+# Phrases that appear on credit card statements as payment acknowledgments — not real transactions
+_CC_STATEMENT_PAYMENT_PHRASES = [
+    "payment thank you",
+    "payment - thank you",
+    "autopay thank you",
+    "online payment thank you",
+    "thank you for your payment",
+]
+
 
 def _is_credit_card_payment(description: str) -> bool:
     lower = description.lower()
     return any(kw in lower for kw in _CC_PAYMENT_KEYWORDS)
+
+
+def _is_cc_payment_acknowledgment(description: str) -> bool:
+    lower = description.lower()
+    return any(phrase in lower for phrase in _CC_STATEMENT_PAYMENT_PHRASES)
 
 # Credit card section markers
 _CC_START_MARKERS = ["ACCOUNT ACTIVITY", "TRANSACTIONS", "PURCHASES", "TRANSACTION DETAIL"]
@@ -217,6 +232,8 @@ def parse_statement(raw_text: str, statement_source: str = "credit_card") -> lis
     for index, chunk in enumerate(chunks):
         for preview in _parse_chunk(chunk, index, len(chunks), statement_source):
             if statement_source == "bank_account" and _is_credit_card_payment(preview.description):
+                continue
+            if statement_source == "credit_card" and _is_cc_payment_acknowledgment(preview.description):
                 continue
             key = (preview.date, preview.description, preview.amount)
             if key in seen:
