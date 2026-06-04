@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..middleware.auth import get_current_user
@@ -15,6 +16,8 @@ def list_transactions(
     category: str | None = Query(None),
     month: int | None = Query(None),
     year: int | None = Query(None),
+    transaction_type: str | None = Query(None),
+    sort: str = Query("date_desc", pattern="^(date_desc|amount_desc)$"),
     limit: int = Query(100, le=500),
     offset: int = Query(0),
     current_user: User = Depends(get_current_user),
@@ -26,10 +29,16 @@ def list_transactions(
     if category:
         q = q.filter(Transaction.category == category)
     if month:
-        q = q.filter(Transaction.date.extract("month") == month)  # type: ignore[attr-defined]
+        q = q.filter(func.extract("month", Transaction.date) == month)
     if year:
-        q = q.filter(Transaction.date.extract("year") == year)  # type: ignore[attr-defined]
-    return q.order_by(Transaction.date.desc()).offset(offset).limit(limit).all()
+        q = q.filter(func.extract("year", Transaction.date) == year)
+    if transaction_type:
+        q = q.filter(Transaction.transaction_type == transaction_type)
+    if sort == "amount_desc":
+        q = q.order_by(Transaction.amount.desc(), Transaction.date.desc())
+    else:
+        q = q.order_by(Transaction.date.desc())
+    return q.offset(offset).limit(limit).all()
 
 
 @router.patch("/{transaction_id}", response_model=TransactionOut)

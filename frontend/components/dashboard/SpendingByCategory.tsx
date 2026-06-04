@@ -5,7 +5,12 @@ import { CategoryTotal } from "@/types";
 
 const COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#64748b"];
 
-export default function SpendingByCategory({ data }: { data: CategoryTotal[] }) {
+interface Props {
+  data: CategoryTotal[];
+  onCategoryClick?: (category: string) => void;
+}
+
+export default function SpendingByCategory({ data, onCategoryClick }: Props) {
   const chartData = data
     .map((d) => ({ name: d.category, value: parseFloat(d.total) }))
     .filter((d) => !Number.isNaN(d.value) && d.value > 0);
@@ -20,7 +25,20 @@ export default function SpendingByCategory({ data }: { data: CategoryTotal[] }) 
     <div className="flex flex-col gap-4">
       <ResponsiveContainer width="100%" height={260}>
         <PieChart>
-          <Pie data={chartData} cx="50%" cy="50%" outerRadius={90} dataKey="value" label={({ name, percent }) => `${name ?? ""} ${(((percent as number | undefined) ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
+          <Pie
+            data={chartData}
+            cx="50%"
+            cy="50%"
+            outerRadius={90}
+            dataKey="value"
+            label={({ name, percent }) => `${name ?? ""} ${(((percent as number | undefined) ?? 0) * 100).toFixed(0)}%`}
+            labelLine={false}
+            style={{ cursor: onCategoryClick ? "pointer" : undefined }}
+            onClick={(_, index) => {
+              const item = chartData[index];
+              if (item?.name) onCategoryClick?.(item.name);
+            }}
+          >
             {chartData.map((_, i) => (
               <Cell key={i} fill={COLORS[i % COLORS.length]} />
             ))}
@@ -31,13 +49,22 @@ export default function SpendingByCategory({ data }: { data: CategoryTotal[] }) 
 
       <div className="grid gap-2 text-sm">
         {chartData.map((item, i) => (
-          <div key={item.name} className="flex items-center justify-between rounded-md border px-3 py-2">
+          <button
+            key={item.name}
+            type="button"
+            onClick={() => onCategoryClick?.(item.name)}
+            disabled={!onCategoryClick}
+            className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-left transition-colors hover:bg-gray-50 disabled:cursor-default disabled:hover:bg-transparent"
+          >
             <div className="flex items-center gap-2 min-w-0">
-              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+              <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
               <span className="truncate text-gray-700">{item.name}</span>
             </div>
-            <div className="font-medium text-gray-900">${item.value.toFixed(2)} <span className="text-gray-400 font-normal">({((item.value / total) * 100).toFixed(0)}%)</span></div>
-          </div>
+            <div className="font-medium text-gray-900 shrink-0 ml-2">
+              ${item.value.toFixed(2)}{" "}
+              <span className="text-gray-400 font-normal">({((item.value / total) * 100).toFixed(0)}%)</span>
+            </div>
+          </button>
         ))}
       </div>
     </div>
