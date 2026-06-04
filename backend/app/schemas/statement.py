@@ -8,6 +8,7 @@ class StatementOut(BaseModel):
     account_id: int
     filename: str
     file_type: str
+    statement_source: str | None
     status: str
     transaction_count: int | None
     uploaded_at: datetime

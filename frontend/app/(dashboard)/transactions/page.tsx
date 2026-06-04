@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import TransactionTable from "@/components/transactions/TransactionTable";
 import { apiFetch } from "@/lib/api";
 import { Transaction } from "@/types";
+import { auth } from "@/auth";
 
 async function getTransactions(): Promise<Transaction[]> {
   try {
@@ -12,8 +13,9 @@ async function getTransactions(): Promise<Transaction[]> {
 }
 
 export default async function TransactionsPage() {
-  const transactions = await getTransactions();
+  const [transactions, session] = await Promise.all([getTransactions(), auth()]);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+  const userEmail = session?.user?.email ?? "";
 
   return (
     <div className="flex flex-col gap-6">
@@ -23,7 +25,7 @@ export default async function TransactionsPage() {
           <CardTitle className="text-base">{transactions.length} transactions</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <TransactionTable transactions={transactions} apiUrl={apiUrl} />
+          <TransactionTable transactions={transactions} apiUrl={apiUrl} userEmail={userEmail} />
         </CardContent>
       </Card>
     </div>

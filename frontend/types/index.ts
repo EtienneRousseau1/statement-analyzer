@@ -33,6 +33,7 @@ export interface Statement {
   account_id: number;
   filename: string;
   file_type: string;
+  statement_source: string | null;
   status: string;
   transaction_count: number | null;
   uploaded_at: string;

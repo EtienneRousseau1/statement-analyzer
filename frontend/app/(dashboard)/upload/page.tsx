@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DropZone from "@/components/upload/DropZone";
+import RecentUploads from "@/components/upload/RecentUploads";
 import { apiFetch } from "@/lib/api";
-import { Account } from "@/types";
+import { Account, Statement } from "@/types";
 import { auth } from "@/auth";
 
 async function getAccounts(): Promise<Account[]> {
@@ -12,10 +13,22 @@ async function getAccounts(): Promise<Account[]> {
   }
 }
 
+async function getStatements(): Promise<Statement[]> {
+  try {
+    return await apiFetch<Statement[]>("/upload/statements");
+  } catch {
+    return [];
+  }
+}
+
 export default async function UploadPage() {
-  const session = await auth();
-  const accounts = await getAccounts();
+  const [accounts, statements, session] = await Promise.all([
+    getAccounts(),
+    getStatements(),
+    auth(),
+  ]);
   const userEmail = session?.user?.email ?? "";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
@@ -34,6 +47,21 @@ export default async function UploadPage() {
           )}
         </CardContent>
       </Card>
+
+      {statements.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Recent Uploads</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3">
+            <RecentUploads
+              initialStatements={statements}
+              apiUrl={apiUrl}
+              userEmail={userEmail}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

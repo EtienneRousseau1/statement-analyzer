@@ -5,8 +5,6 @@ from google import genai
 from ..config import settings
 from ..schemas.transaction import TransactionPreview
 
-# Initialize the google-genai client.
-# Prefer an explicit API key (GENAI_API_KEY) if provided; otherwise use Vertex/ADC via GOOGLE_CLOUD_PROJECT.
 if settings.genai_api_key:
     genai_client = genai.Client(api_key=settings.genai_api_key)
 elif settings.google_cloud_project:
@@ -14,18 +12,19 @@ elif settings.google_cloud_project:
 else:
     raise RuntimeError("Either GOOGLE_CLOUD_PROJECT or GENAI_API_KEY must be set for Gemini parsing")
 
-_SYSTEM_PROMPT = """You are a financial statement parser. Given raw text from a bank or credit card statement, extract every transaction from the ACCOUNT ACTIVITY section(s) only and return them as a JSON array.
+_CREDIT_CARD_PROMPT = """You are a financial statement parser for CREDIT CARD statements. Extract every transaction and return a JSON array.
 
 Each transaction object must have exactly these fields:
 - date: string in YYYY-MM-DD format
 - description: string, cleaned merchant/payee name
 - amount: number, always positive (use transaction_type to indicate direction)
-- transaction_type: "debit" for money spent/withdrawn, "credit" for money received/refunded
+- transaction_type: "debit" for purchases/charges, "credit" for payments/refunds/credits
 - category: one of exactly: "Food & Dining", "Shopping", "Transport", "Entertainment", "Utilities", "Health", "Travel", "Subscriptions", "Income", "Other"
 
 Rules:
-- Only use the ACCOUNT ACTIVITY / ACCOUNT ACTIVITY (CONTINUED) sections; ignore ACCOUNT SUMMARY, REWARDS SUMMARY, interest charges, balances, payment warnings, and mailing/coupon text
-- Ignore balance summaries, header rows, and non-transaction lines
+- Only extract from transaction sections (ACCOUNT ACTIVITY, TRANSACTIONS, PURCHASES, PAYMENTS, etc.); skip summaries, balances, rewards, interest charges, and marketing text
+- Ignore header rows, balance summaries, and non-transaction lines
+- Purchases/charges → transaction_type "debit"; payments to the card or refunds → transaction_type "credit"
 - Round amounts to 2 decimal places
 - If a date is missing the year, infer from surrounding context
 - Return ONLY valid JSON — no markdown, no explanation, just the array
@@ -33,30 +32,95 @@ Rules:
 Example output:
 [
   {"date": "2024-01-15", "description": "Whole Foods Market", "amount": 67.42, "transaction_type": "debit", "category": "Food & Dining"},
-  {"date": "2024-01-16", "description": "Netflix", "amount": 15.99, "transaction_type": "debit", "category": "Subscriptions"}
+  {"date": "2024-01-16", "description": "Payment Thank You", "amount": 500.00, "transaction_type": "credit", "category": "Other"}
 ]"""
 
-# Large statements are parsed in chunks so we don't truncate or exceed output token limits.
+_BANK_ACCOUNT_PROMPT = """You are a financial statement parser for BANK ACCOUNT statements (checking/savings). Extract every transaction and return a JSON array.
+
+Each transaction object must have exactly these fields:
+- date: string in YYYY-MM-DD format
+- description: string, cleaned merchant/payee name or transfer description
+- amount: number, always positive (use transaction_type to indicate direction)
+- transaction_type: "credit" for money coming IN (deposits, transfers in, direct deposit, payroll), "debit" for money going OUT (withdrawals, payments, transfers out, checks)
+- category: one of exactly: "Food & Dining", "Shopping", "Transport", "Entertainment", "Utilities", "Health", "Travel", "Subscriptions", "Income", "Other"
+
+Rules:
+- Extract from all transaction sections: Transaction History, Deposits, Withdrawals, Checks Paid, Electronic Withdrawals, Electronic Deposits, Daily Ledger, Account Activity, etc.
+- Skip running balance columns, opening/closing balance rows, and account summary sections
+- Deposits / incoming transfers / direct deposit / payroll → transaction_type "credit"
+- Withdrawals / payments / checks / outgoing transfers → transaction_type "debit"
+- For Wells Fargo statements: deposits column = "credit", withdrawals column = "debit"
+- EXCLUDE all credit card payment transactions — any row whose description contains words like "credit card payment", "card payment", "Chase", "Amex", "Discover", "Capital One", "Citi", "Mastercard", "Visa payment", "payment to card", or similar. These are already tracked via the credit card statement.
+- Round amounts to 2 decimal places
+- If a date is missing the year, infer from surrounding context
+- Return ONLY valid JSON — no markdown, no explanation, just the array
+
+Example output:
+[
+  {"date": "2024-01-01", "description": "Direct Deposit Employer", "amount": 2500.00, "transaction_type": "credit", "category": "Income"},
+  {"date": "2024-01-03", "description": "Zelle Transfer To John", "amount": 150.00, "transaction_type": "debit", "category": "Other"},
+  {"date": "2024-01-05", "description": "Walmart", "amount": 43.21, "transaction_type": "debit", "category": "Shopping"}
+]"""
+
 CHUNK_SIZE = 30_000
 MAX_OUTPUT_TOKENS = 8192
 
+# Substrings that identify credit card payment rows in bank statements (case-insensitive).
+# These are already captured via the credit card upload, so we drop them here.
+_CC_PAYMENT_KEYWORDS = [
+    "credit card payment",
+    "credit card pmt",
+    "card payment",
+    "visa payment",
+    "mastercard payment",
+    "amex payment",
+    "discover payment",
+    "capital one payment",
+    "citi payment",
+    "chase payment",
+    "wells fargo card",
+    "payment to card",
+    "online payment to",
+]
 
-def _extract_account_activity_text(raw_text: str) -> str:
+
+def _is_credit_card_payment(description: str) -> bool:
+    lower = description.lower()
+    return any(kw in lower for kw in _CC_PAYMENT_KEYWORDS)
+
+# Credit card section markers
+_CC_START_MARKERS = ["ACCOUNT ACTIVITY", "TRANSACTIONS", "PURCHASES", "TRANSACTION DETAIL"]
+_CC_END_MARKERS = ["INTEREST CHARGES", "ACCOUNT INFORMATION", "REWARDS SUMMARY", "FEES CHARGED"]
+
+# Bank account section markers
+_BANK_START_MARKERS = [
+    "TRANSACTION HISTORY", "TRANSACTION DETAIL", "ACCOUNT ACTIVITY",
+    "DEPOSITS AND WITHDRAWALS", "DAILY LEDGER", "CHECKING SUMMARY",
+]
+_BANK_END_MARKERS = [
+    "ENDING BALANCE", "ACCOUNT SUMMARY", "SERVICE FEE SUMMARY",
+    "OVERDRAFT PROTECTION", "INTEREST SUMMARY",
+]
+
+
+def _extract_relevant_text(raw_text: str, statement_source: str) -> str:
     text = raw_text.strip()
-    start_markers = ["ACCOUNT ACTIVITY"]
-    end_markers = ["INTEREST CHARGES", "ACCOUNT INFORMATION", "REWARDS SUMMARY"]
+    start_markers = _BANK_START_MARKERS if statement_source == "bank_account" else _CC_START_MARKERS
+    end_markers = _BANK_END_MARKERS if statement_source == "bank_account" else _CC_END_MARKERS
+
+    text_upper = text.upper()
 
     start = -1
     for marker in start_markers:
-        idx = text.find(marker)
+        idx = text_upper.find(marker)
         if idx != -1 and (start == -1 or idx < start):
             start = idx
 
     if start == -1:
         return text
 
-    end_candidates = [text.find(marker, start) for marker in end_markers]
-    end_candidates = [idx for idx in end_candidates if idx != -1]
+    end_candidates = [text_upper.find(m, start) for m in end_markers]
+    end_candidates = [i for i in end_candidates if i != -1 and i > start]
     end = min(end_candidates) if end_candidates else len(text)
 
     return text[start:end].strip()
@@ -95,7 +159,11 @@ def _parse_json_array(raw_json: str) -> list[dict]:
     return data
 
 
-def _parse_chunk(chunk_text: str, chunk_index: int, chunk_count: int) -> list[TransactionPreview]:
+def _parse_chunk(
+    chunk_text: str, chunk_index: int, chunk_count: int, statement_source: str
+) -> list[TransactionPreview]:
+    system_prompt = _BANK_ACCOUNT_PROMPT if statement_source == "bank_account" else _CREDIT_CARD_PROMPT
+
     chunk_note = ""
     if chunk_count > 1:
         chunk_note = (
@@ -103,7 +171,7 @@ def _parse_chunk(chunk_text: str, chunk_index: int, chunk_count: int) -> list[Tr
             "Extract every transaction present in this chunk only."
         )
 
-    prompt = _SYSTEM_PROMPT + chunk_note + "\n\nParse the following statement:\n\n" + chunk_text
+    prompt = system_prompt + chunk_note + "\n\nParse the following statement:\n\n" + chunk_text
 
     try:
         response = genai_client.models.generate_content(
@@ -134,18 +202,20 @@ def _parse_chunk(chunk_text: str, chunk_index: int, chunk_count: int) -> list[Tr
     return previews
 
 
-def parse_statement(raw_text: str) -> list[TransactionPreview]:
+def parse_statement(raw_text: str, statement_source: str = "credit_card") -> list[TransactionPreview]:
     if not raw_text or not raw_text.strip():
         raise ValueError("No extractable text found in the uploaded file")
 
-    activity_text = _extract_account_activity_text(raw_text)
+    activity_text = _extract_relevant_text(raw_text, statement_source)
     chunks = _chunk_text(activity_text)
 
     all_previews: list[TransactionPreview] = []
     seen: set[tuple[date, str, Decimal]] = set()
 
     for index, chunk in enumerate(chunks):
-        for preview in _parse_chunk(chunk, index, len(chunks)):
+        for preview in _parse_chunk(chunk, index, len(chunks), statement_source):
+            if statement_source == "bank_account" and _is_credit_card_payment(preview.description):
+                continue
             key = (preview.date, preview.description, preview.amount)
             if key in seen:
                 continue

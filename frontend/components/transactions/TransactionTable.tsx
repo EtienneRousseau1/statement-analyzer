@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Trash2 } from "lucide-react";
 import { Transaction, CATEGORIES } from "@/types";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { clsx } from "clsx";
 
@@ -22,20 +22,33 @@ const CATEGORY_COLORS: Record<string, string> = {
 interface Props {
   transactions: Transaction[];
   apiUrl: string;
+  userEmail: string;
 }
 
-export default function TransactionTable({ transactions: initial, apiUrl }: Props) {
+export default function TransactionTable({ transactions: initial, apiUrl, userEmail }: Props) {
   const [transactions, setTransactions] = useState(initial);
+
+  const authHeader = { "X-User-Email": userEmail };
 
   const handleCategoryChange = async (id: number, category: string | null) => {
     if (!category) return;
     const res = await fetch(`${apiUrl}/transactions/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeader },
       body: JSON.stringify({ category }),
     });
     if (res.ok) {
       setTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, category } : t)));
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    const res = await fetch(`${apiUrl}/transactions/${id}`, {
+      method: "DELETE",
+      headers: authHeader,
+    });
+    if (res.ok) {
+      setTransactions((prev) => prev.filter((t) => t.id !== id));
     }
   };
 
@@ -44,14 +57,14 @@ export default function TransactionTable({ transactions: initial, apiUrl }: Prop
       <table className="w-full text-sm">
         <thead className="bg-gray-50">
           <tr>
-            {["Date", "Description", "Amount", "Type", "Category"].map((h) => (
-              <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+            {["Date", "Description", "Amount", "Type", "Category", ""].map((h, i) => (
+              <th key={i} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
             ))}
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
           {transactions.map((tx) => (
-            <tr key={tx.id} className="hover:bg-gray-50">
+            <tr key={tx.id} className="hover:bg-gray-50 group">
               <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{tx.date}</td>
               <td className="px-4 py-3 text-gray-800 max-w-xs truncate">{tx.description}</td>
               <td className={clsx("px-4 py-3 font-semibold whitespace-nowrap", tx.transaction_type === "credit" ? "text-green-600" : "text-gray-900")}>
@@ -75,6 +88,15 @@ export default function TransactionTable({ transactions: initial, apiUrl }: Prop
                     ))}
                   </SelectContent>
                 </Select>
+              </td>
+              <td className="px-4 py-3">
+                <button
+                  onClick={() => handleDelete(tx.id)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500"
+                  aria-label="Delete transaction"
+                >
+                  <Trash2 size={15} />
+                </button>
               </td>
             </tr>
           ))}

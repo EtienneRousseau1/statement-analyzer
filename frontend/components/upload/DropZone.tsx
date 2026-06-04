@@ -16,6 +16,7 @@ export default function DropZone({ accounts, userEmail }: Props) {
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [accountId, setAccountId] = useState<string>("");
+  const [statementSource, setStatementSource] = useState<string>("credit_card");
   const [status, setStatus] = useState<"idle" | "uploading" | "preview" | "confirmed" | "error">("idle");
   const [result, setResult] = useState<UploadResponse | null>(null);
   const [error, setError] = useState("");
@@ -38,6 +39,7 @@ export default function DropZone({ accounts, userEmail }: Props) {
     const form = new FormData();
     form.append("file", file);
     form.append("account_id", accountId);
+    form.append("statement_source", statementSource);
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -152,6 +154,24 @@ export default function DropZone({ accounts, userEmail }: Props) {
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <label className="text-sm font-medium text-gray-700">Statement Type</label>
+        <Select onValueChange={(v) => v && setStatementSource(v)} value={statementSource}>
+          <SelectTrigger className="w-64">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="credit_card">Credit Card Statement</SelectItem>
+            <SelectItem value="bank_account">Bank Account Statement</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-gray-400">
+          {statementSource === "credit_card"
+            ? "Charges are debits, payments/refunds are credits"
+            : "Deposits are credits (income in), withdrawals/payments are debits (money out)"}
+        </p>
       </div>
 
       <div

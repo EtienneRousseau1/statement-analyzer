@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
 import json
 import hashlib
@@ -25,6 +25,7 @@ MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
 async def upload_statement(
     file: UploadFile = File(...),
     account_id: int = Form(...),
+    statement_source: str = Form("credit_card"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -60,12 +61,16 @@ async def upload_statement(
         db.delete(duplicate_statement)
         db.commit()
 
+    if statement_source not in ("credit_card", "bank_account"):
+        raise HTTPException(status_code=422, detail="statement_source must be 'credit_card' or 'bank_account'")
+
     statement = Statement(
         user_id=current_user.id,
         account_id=account_id,
         filename=filename,
         file_type=ext,
         file_hash=file_hash,
+        statement_source=statement_source,
         status="pending",
     )
     db.add(statement)
@@ -76,7 +81,7 @@ async def upload_statement(
         raw_text = extract_text_from_pdf(file_bytes) if ext == "pdf" else normalize_csv(file_bytes)
         if not raw_text.strip():
             raise HTTPException(status_code=400, detail="No extractable text found in the uploaded file")
-        previews = parse_statement(raw_text)
+        previews = parse_statement(raw_text, statement_source)
         
         # Cache previews as JSON
         previews_data = [
@@ -144,9 +149,38 @@ def confirm_upload(
     
     statement.status = "confirmed"
     db.commit()
-    
+
     # Refresh all to get IDs
     for tx in created_transactions:
         db.refresh(tx)
-    
+
     return created_transactions
+
+
+@router.get("/statements", response_model=list[StatementOut])
+def list_statements(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(Statement)
+        .filter(Statement.user_id == current_user.id, Statement.status == "confirmed")
+        .order_by(Statement.uploaded_at.desc())
+        .all()
+    )
+
+
+@router.delete("/statements/{statement_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_statement(
+    statement_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    statement = db.query(Statement).filter(
+        Statement.id == statement_id, Statement.user_id == current_user.id
+    ).first()
+    if not statement:
+        raise HTTPException(status_code=404, detail="Statement not found")
+    db.query(Transaction).filter(Transaction.statement_id == statement_id).delete()
+    db.delete(statement)
+    db.commit()

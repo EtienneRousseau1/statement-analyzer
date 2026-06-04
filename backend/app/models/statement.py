@@ -16,6 +16,7 @@ class Statement(Base):
     filename: Mapped[str] = mapped_column(String(500), nullable=False)
     file_type: Mapped[str] = mapped_column(String(10), nullable=False)  # pdf, csv
     file_hash: Mapped[str | None] = mapped_column(String(64), index=True)
+    statement_source: Mapped[str | None] = mapped_column(String(20))  # credit_card, bank_account
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, parsed, confirmed, failed
     transaction_count: Mapped[int | None]
     previews_json: Mapped[str | None] = mapped_column(Text)  # Cached JSON of transaction previews
