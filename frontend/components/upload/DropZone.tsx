@@ -144,7 +144,13 @@ export default function DropZone({ accounts, userEmail }: Props) {
         <label className="text-sm font-medium text-gray-700">Account</label>
         <Select onValueChange={(v) => v && setAccountId(v)} value={accountId}>
           <SelectTrigger className="w-64">
-            <SelectValue placeholder="Select account..." />
+            <SelectValue placeholder="Select account...">
+              {(v: string | null) => {
+                if (!v) return "Select account...";
+                const a = accounts.find((a) => String(a.id) === v);
+                return a ? `${a.name}${a.last_four ? ` ···${a.last_four}` : ""}` : "Select account...";
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {accounts.map((a) => (
@@ -160,7 +166,11 @@ export default function DropZone({ accounts, userEmail }: Props) {
         <label className="text-sm font-medium text-gray-700">Statement Type</label>
         <Select onValueChange={(v) => v && setStatementSource(v)} value={statementSource}>
           <SelectTrigger className="w-64">
-            <SelectValue />
+            <SelectValue>
+              {(v: string | null) =>
+                v === "bank_account" ? "Bank Account Statement" : "Credit Card Statement"
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="credit_card">Credit Card Statement</SelectItem>

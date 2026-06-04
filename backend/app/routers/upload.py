@@ -170,6 +170,34 @@ def list_statements(
     )
 
 
+@router.patch("/statements/{statement_id}", response_model=StatementOut)
+def reassign_statement(
+    statement_id: int,
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    statement = db.query(Statement).filter(
+        Statement.id == statement_id, Statement.user_id == current_user.id
+    ).first()
+    if not statement:
+        raise HTTPException(status_code=404, detail="Statement not found")
+
+    new_account_id = payload.get("account_id")
+    if not new_account_id:
+        raise HTTPException(status_code=422, detail="account_id required")
+
+    account = db.query(Account).filter(Account.id == new_account_id, Account.user_id == current_user.id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    statement.account_id = new_account_id
+    db.query(Transaction).filter(Transaction.statement_id == statement_id).update({"account_id": new_account_id})
+    db.commit()
+    db.refresh(statement)
+    return statement
+
+
 @router.delete("/statements/{statement_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_statement(
     statement_id: int,

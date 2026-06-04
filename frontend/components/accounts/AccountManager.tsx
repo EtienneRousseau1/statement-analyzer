@@ -136,7 +136,11 @@ export default function AccountManager({ initialAccounts, userEmail }: Props) {
                 <Label>Account Type</Label>
                 <Select value={accountType} onValueChange={setAccountType}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue>
+                      {(v: string | null) =>
+                        v === "credit" ? "Credit Card" : v === "savings" ? "Savings" : "Checking"
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="credit">Credit Card</SelectItem>

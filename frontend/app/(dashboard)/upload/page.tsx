@@ -56,6 +56,7 @@ export default async function UploadPage() {
           <CardContent className="p-3">
             <RecentUploads
               initialStatements={statements}
+              accounts={accounts}
               apiUrl={apiUrl}
               userEmail={userEmail}
             />
