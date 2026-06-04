@@ -48,13 +48,17 @@ async def upload_statement(
         .first()
     )
     if duplicate_statement:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                f"Duplicate upload detected: this file was already uploaded as statement #{duplicate_statement.id} "
-                f"({duplicate_statement.filename})"
-            ),
-        )
+        if duplicate_statement.status == "confirmed":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Duplicate upload detected: this file was already uploaded as statement #{duplicate_statement.id} "
+                    f"({duplicate_statement.filename})"
+                ),
+            )
+        # Allow retry when a previous upload failed or was never confirmed.
+        db.delete(duplicate_statement)
+        db.commit()
 
     statement = Statement(
         user_id=current_user.id,

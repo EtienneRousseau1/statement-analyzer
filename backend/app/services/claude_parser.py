@@ -36,6 +36,10 @@ Example output:
   {"date": "2024-01-16", "description": "Netflix", "amount": 15.99, "transaction_type": "debit", "category": "Subscriptions"}
 ]"""
 
+# Large statements are parsed in chunks so we don't truncate or exceed output token limits.
+CHUNK_SIZE = 30_000
+MAX_OUTPUT_TOKENS = 8192
+
 
 def _extract_account_activity_text(raw_text: str) -> str:
     text = raw_text.strip()
@@ -58,53 +62,63 @@ def _extract_account_activity_text(raw_text: str) -> str:
     return text[start:end].strip()
 
 
-def parse_statement(raw_text: str) -> list[TransactionPreview]:
-    if not raw_text or not raw_text.strip():
-        raise ValueError("No extractable text found in the uploaded file")
+def _chunk_text(text: str, chunk_size: int = CHUNK_SIZE) -> list[str]:
+    if len(text) <= chunk_size:
+        return [text]
+    return [text[i : i + chunk_size] for i in range(0, len(text), chunk_size)]
 
-    # Use model configured in settings (defaults to gemini-3.1-flash-lite)
-    model = settings.genai_model or "gemini-3.1-flash-lite"
 
-    # Truncate input to be more cost-efficient (last 50k chars should cover most statements)
-    activity_text = _extract_account_activity_text(raw_text)
-    truncated_text = activity_text[-50000:] if len(activity_text) > 50000 else activity_text
-
-    prompt = _SYSTEM_PROMPT + "\n\nParse the following statement:\n\n" + truncated_text
-
-    # Call the model. The google-genai client uses ADC when available.
-    try:
-        response = genai_client.models.generate_content(
-            model=model,
-            contents=[prompt],
-            config={
-                "temperature": 0.2,
-                "max_output_tokens": 4096,
-                "response_mime_type": "application/json",
-            },
-        )
-    except Exception as exc:
-        raise RuntimeError(f"LLM request failed: {exc}")
-
-    # Extract text from response with a few fallbacks
-    raw_json = None
+def _extract_response_text(response) -> str:
     if hasattr(response, "text") and response.text:
-        raw_json = response.text
-    else:
-        try:
-            # common response shape: response.candidates[0].content[0].text
-            raw_json = response.candidates[0].content[0].text
-        except Exception:
-            raw_json = str(response)
+        return response.text.strip()
+    try:
+        return response.candidates[0].content[0].text.strip()
+    except Exception:
+        return str(response).strip()
 
+
+def _parse_json_array(raw_json: str) -> list[dict]:
     raw_json = raw_json.strip()
-    # Strip markdown fences if Gemini adds them
     if raw_json.startswith("```"):
         raw_json = raw_json.split("```")[1]
         if raw_json.startswith("json"):
             raw_json = raw_json[4:]
         raw_json = raw_json.strip()
 
-    transactions_data = json.loads(raw_json)
+    try:
+        data = json.loads(raw_json)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Model returned invalid JSON: {exc}") from exc
+
+    if not isinstance(data, list):
+        raise ValueError("Model response was not a JSON array")
+    return data
+
+
+def _parse_chunk(chunk_text: str, chunk_index: int, chunk_count: int) -> list[TransactionPreview]:
+    chunk_note = ""
+    if chunk_count > 1:
+        chunk_note = (
+            f"\n\nNote: this is chunk {chunk_index + 1} of {chunk_count} from a long statement. "
+            "Extract every transaction present in this chunk only."
+        )
+
+    prompt = _SYSTEM_PROMPT + chunk_note + "\n\nParse the following statement:\n\n" + chunk_text
+
+    try:
+        response = genai_client.models.generate_content(
+            model=settings.genai_model or "gemini-3.1-flash-lite",
+            contents=[prompt],
+            config={
+                "temperature": 0.2,
+                "max_output_tokens": MAX_OUTPUT_TOKENS,
+                "response_mime_type": "application/json",
+            },
+        )
+    except Exception as exc:
+        raise RuntimeError(f"LLM request failed: {exc}") from exc
+
+    transactions_data = _parse_json_array(_extract_response_text(response))
 
     previews = []
     for t in transactions_data:
@@ -118,3 +132,27 @@ def parse_statement(raw_text: str) -> list[TransactionPreview]:
             )
         )
     return previews
+
+
+def parse_statement(raw_text: str) -> list[TransactionPreview]:
+    if not raw_text or not raw_text.strip():
+        raise ValueError("No extractable text found in the uploaded file")
+
+    activity_text = _extract_account_activity_text(raw_text)
+    chunks = _chunk_text(activity_text)
+
+    all_previews: list[TransactionPreview] = []
+    seen: set[tuple[date, str, Decimal]] = set()
+
+    for index, chunk in enumerate(chunks):
+        for preview in _parse_chunk(chunk, index, len(chunks)):
+            key = (preview.date, preview.description, preview.amount)
+            if key in seen:
+                continue
+            seen.add(key)
+            all_previews.append(preview)
+
+    if not all_previews:
+        raise ValueError("No transactions found in the uploaded file")
+
+    return all_previews
