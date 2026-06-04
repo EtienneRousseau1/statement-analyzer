@@ -70,6 +70,7 @@ export interface MonthlyTotal {
   year: number;
   month: number;
   total: string;
+  income: string;
 }
 
 export interface DashboardSummary {
@@ -79,6 +80,7 @@ export interface DashboardSummary {
   total_income_all_time: string;
   by_category: CategoryTotal[];
   by_category_all_time: CategoryTotal[];
+  income_by_category: CategoryTotal[];
   monthly_trend: MonthlyTotal[];
   account_count: number;
   transaction_count_this_month: number;
@@ -94,6 +96,7 @@ export const CATEGORIES = [
   "Health",
   "Travel",
   "Subscriptions",
+  "Rent",
   "Income",
   "Other",
 ] as const;

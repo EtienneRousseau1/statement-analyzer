@@ -82,42 +82,49 @@ export default function DashboardClient() {
       )}
 
       {/* KPI row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-1">
-            <CardTitle className="text-sm font-medium text-gray-500">Spent All Time</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-gray-900">
-              ${parseFloat(summary?.total_spent_all_time ?? "0").toFixed(2)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-1">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              Spent in {monthLabel}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-indigo-600">
-              ${parseFloat(summary?.total_spent_this_month ?? "0").toFixed(2)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-1">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              Transactions in {MONTH_NAMES[month - 1]}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-gray-900">
-              {summary?.transaction_count_this_month ?? 0}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      {(() => {
+        const income = parseFloat(summary?.total_income_this_month ?? "0");
+        const spent = parseFloat(summary?.total_spent_this_month ?? "0");
+        const net = income - spent;
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="pb-1">
+                <CardTitle className="text-sm font-medium text-gray-500">Money In — {MONTH_NAMES[month - 1]}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-green-600">+${income.toFixed(2)}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-1">
+                <CardTitle className="text-sm font-medium text-gray-500">Money Out — {MONTH_NAMES[month - 1]}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-indigo-600">-${spent.toFixed(2)}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-1">
+                <CardTitle className="text-sm font-medium text-gray-500">Net — {MONTH_NAMES[month - 1]}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className={`text-2xl font-bold ${net >= 0 ? "text-green-600" : "text-red-500"}`}>
+                  {net >= 0 ? "+" : "-"}${Math.abs(net).toFixed(2)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-1">
+                <CardTitle className="text-sm font-medium text-gray-500">Transactions — {MONTH_NAMES[month - 1]}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-gray-900">{summary?.transaction_count_this_month ?? 0}</p>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -135,19 +142,34 @@ export default function DashboardClient() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Monthly Trend</CardTitle>
+            <CardTitle className="text-base">Income by Category</CardTitle>
+            <p className="text-xs text-gray-500">Click a category to see individual transactions</p>
           </CardHeader>
           <CardContent>
-            <MonthlyTrend
-              data={summary?.monthly_trend ?? []}
-              onMonthClick={(m, y) => {
-                setMonth(m);
-                setYear(y);
-              }}
+            <SpendingByCategory
+              data={summary?.income_by_category ?? []}
+              onCategoryClick={setSelectedCategory}
+              valueLabel="Income"
             />
           </CardContent>
         </Card>
       </div>
+
+      {/* Trend row */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Monthly Trend</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MonthlyTrend
+            data={summary?.monthly_trend ?? []}
+            onMonthClick={(m, y) => {
+              setMonth(m);
+              setYear(y);
+            }}
+          />
+        </CardContent>
+      </Card>
 
       {/* Budget progress */}
       <Card>

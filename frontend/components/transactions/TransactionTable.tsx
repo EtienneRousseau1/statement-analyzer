@@ -15,6 +15,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   Health: "bg-red-100 text-red-700",
   Travel: "bg-teal-100 text-teal-700",
   Subscriptions: "bg-pink-100 text-pink-700",
+  Rent: "bg-amber-100 text-amber-800",
   Income: "bg-green-100 text-green-700",
   Other: "bg-gray-100 text-gray-500",
 };

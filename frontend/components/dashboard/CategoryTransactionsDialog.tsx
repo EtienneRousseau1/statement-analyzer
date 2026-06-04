@@ -24,6 +24,7 @@ interface Props {
   year: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  transactionType?: "debit" | "credit";
 }
 
 export default function CategoryTransactionsDialog({
@@ -32,6 +33,7 @@ export default function CategoryTransactionsDialog({
   year,
   open,
   onOpenChange,
+  transactionType = "debit",
 }: Props) {
   const { data: session, status } = useSession();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -52,7 +54,7 @@ export default function CategoryTransactionsDialog({
       category,
       month: String(month),
       year: String(year),
-      transaction_type: "debit",
+      transaction_type: transactionType,
       sort: "amount_desc",
       limit: "500",
     });

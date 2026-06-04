@@ -19,10 +19,11 @@ Each transaction object must have exactly these fields:
 - description: string, cleaned merchant/payee name
 - amount: number, always positive (use transaction_type to indicate direction)
 - transaction_type: "debit" for purchases/charges, "credit" for payments/refunds/credits
-- category: one of exactly: "Food & Dining", "Shopping", "Transport", "Entertainment", "Utilities", "Health", "Travel", "Subscriptions", "Income", "Other"
+- category: one of exactly: "Food & Dining", "Shopping", "Transport", "Entertainment", "Utilities", "Health", "Travel", "Subscriptions", "Rent", "Income", "Other"
 
 Rules:
 - Only extract from transaction sections (ACCOUNT ACTIVITY, TRANSACTIONS, PURCHASES, PAYMENTS, etc.); skip summaries, balances, rewards, interest charges, and marketing text
+- Any transaction with description containing "zabace", "zaba", rent, lease, or apartment payment → category "Rent"
 - Ignore header rows, balance summaries, and non-transaction lines
 - Purchases/charges → transaction_type "debit"; payments to the card or refunds → transaction_type "credit"
 - Round amounts to 2 decimal places
@@ -42,10 +43,11 @@ Each transaction object must have exactly these fields:
 - description: string, cleaned merchant/payee name or transfer description
 - amount: number, always positive (use transaction_type to indicate direction)
 - transaction_type: "credit" for money coming IN (deposits, transfers in, direct deposit, payroll), "debit" for money going OUT (withdrawals, payments, transfers out, checks)
-- category: one of exactly: "Food & Dining", "Shopping", "Transport", "Entertainment", "Utilities", "Health", "Travel", "Subscriptions", "Income", "Other"
+- category: one of exactly: "Food & Dining", "Shopping", "Transport", "Entertainment", "Utilities", "Health", "Travel", "Subscriptions", "Rent", "Income", "Other"
 
 Rules:
 - Extract from all transaction sections: Transaction History, Deposits, Withdrawals, Checks Paid, Electronic Withdrawals, Electronic Deposits, Daily Ledger, Account Activity, etc.
+- Any transaction with description containing "zabace", "zaba", rent, lease, or apartment payment → category "Rent"
 - Skip running balance columns, opening/closing balance rows, and account summary sections
 - Deposits / incoming transfers / direct deposit / payroll → transaction_type "credit"
 - Withdrawals / payments / checks / outgoing transfers → transaction_type "debit"

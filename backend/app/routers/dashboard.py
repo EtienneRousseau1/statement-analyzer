@@ -22,6 +22,7 @@ class MonthlyTotal(BaseModel):
     year: int
     month: int
     total: Decimal
+    income: Decimal = Decimal("0")
 
 
 class DashboardSummary(BaseModel):
@@ -31,6 +32,7 @@ class DashboardSummary(BaseModel):
     total_income_all_time: Decimal
     by_category: list[CategoryTotal]
     by_category_all_time: list[CategoryTotal]
+    income_by_category: list[CategoryTotal]
     monthly_trend: list[MonthlyTotal]
     account_count: int
     transaction_count_this_month: int
@@ -101,7 +103,7 @@ def summary(
         CategoryTotal(category=row[0], total=Decimal(str(row[1]))) for row in by_category_all_time_rows
     ]
 
-    trend_rows = (
+    spend_rows = (
         db.query(
             func.extract("year", Transaction.date).label("yr"),
             func.extract("month", Transaction.date).label("mo"),
@@ -117,9 +119,42 @@ def summary(
         .limit(6)
         .all()
     )
+
+    income_rows = (
+        db.query(
+            func.extract("year", Transaction.date).label("yr"),
+            func.extract("month", Transaction.date).label("mo"),
+            func.sum(Transaction.amount).label("total"),
+        )
+        .filter(
+            Transaction.user_id == current_user.id,
+            Transaction.confirmed.is_(True),
+            Transaction.transaction_type == "credit",
+        )
+        .group_by("yr", "mo")
+        .all()
+    )
+    income_map = {(int(r.yr), int(r.mo)): Decimal(str(r.total)) for r in income_rows}
+
+    income_by_category_rows = (
+        month_base.filter(Transaction.transaction_type == "credit")
+        .with_entities(Transaction.category, func.sum(Transaction.amount))
+        .group_by(Transaction.category)
+        .order_by(func.sum(Transaction.amount).desc())
+        .all()
+    )
+    income_by_category = [
+        CategoryTotal(category=row[0], total=Decimal(str(row[1]))) for row in income_by_category_rows
+    ]
+
     monthly_trend = [
-        MonthlyTotal(year=int(row.yr), month=int(row.mo), total=Decimal(str(row.total)))
-        for row in trend_rows
+        MonthlyTotal(
+            year=int(row.yr),
+            month=int(row.mo),
+            total=Decimal(str(row.total)),
+            income=income_map.get((int(row.yr), int(row.mo)), Decimal("0")),
+        )
+        for row in spend_rows
     ]
 
     account_count = db.query(Account).filter(Account.user_id == current_user.id).count()
@@ -131,6 +166,7 @@ def summary(
         total_income_all_time=Decimal(str(total_income_all_time)),
         by_category=by_category,
         by_category_all_time=by_category_all_time,
+        income_by_category=income_by_category,
         monthly_trend=monthly_trend,
         account_count=account_count,
         transaction_count_this_month=tx_count_month,

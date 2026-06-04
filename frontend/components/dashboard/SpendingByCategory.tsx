@@ -8,9 +8,10 @@ const COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#3b82f6", "#8b5cf6"
 interface Props {
   data: CategoryTotal[];
   onCategoryClick?: (category: string) => void;
+  valueLabel?: string;
 }
 
-export default function SpendingByCategory({ data, onCategoryClick }: Props) {
+export default function SpendingByCategory({ data, onCategoryClick, valueLabel = "Spent" }: Props) {
   const chartData = data
     .map((d) => ({ name: d.category, value: parseFloat(d.total) }))
     .filter((d) => !Number.isNaN(d.value) && d.value > 0);
@@ -43,7 +44,7 @@ export default function SpendingByCategory({ data, onCategoryClick }: Props) {
               <Cell key={i} fill={COLORS[i % COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`, "Spent"]} />
+          <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`, valueLabel]} />
         </PieChart>
       </ResponsiveContainer>
 
