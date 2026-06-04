@@ -32,12 +32,15 @@ export default async function UploadPage() {
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
-      <h1 className="text-2xl font-bold text-gray-900">Upload Statement</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Upload PDF or CSV</CardTitle>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Upload Statement</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Import transactions from a PDF or CSV bank/credit card statement</p>
+      </div>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3 border-b border-gray-100">
+          <CardTitle className="text-sm font-semibold text-gray-800">Upload PDF or CSV</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           {accounts.length === 0 ? (
             <p className="text-sm text-amber-600">
               No accounts found. Add an account before uploading a statement.
@@ -49,9 +52,9 @@ export default async function UploadPage() {
       </Card>
 
       {statements.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Recent Uploads</CardTitle>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-3 border-b border-gray-100">
+            <CardTitle className="text-sm font-semibold text-gray-800">Recent Uploads</CardTitle>
           </CardHeader>
           <CardContent className="p-3">
             <RecentUploads

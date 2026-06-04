@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { BudgetStatus, CATEGORIES } from "@/types";
+import { PiggyBank } from "lucide-react";
 import { clsx } from "clsx";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -22,19 +23,13 @@ export default function BudgetsPage() {
   const now = new Date();
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
+  const monthLabel = now.toLocaleString("default", { month: "long", year: "numeric" });
 
   useEffect(() => {
     const email = session?.user?.email;
-    if (status !== "authenticated" || !email) {
-      setBudgets([]);
-      return;
-    }
-
+    if (status !== "authenticated" || !email) { setBudgets([]); return; }
     fetch(`${API_URL}/budgets/status?month=${month}&year=${year}`, {
-      headers: {
-        "Content-Type": "application/json",
-        "X-User-Email": email,
-      },
+      headers: { "Content-Type": "application/json", "X-User-Email": email },
     })
       .then((r) => r.json())
       .then((data) => setBudgets(Array.isArray(data) ? data : []))
@@ -48,17 +43,11 @@ export default function BudgetsPage() {
     try {
       await fetch(`${API_URL}/budgets`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Email": email,
-        },
+        headers: { "Content-Type": "application/json", "X-User-Email": email },
         body: JSON.stringify({ category, monthly_limit: parseFloat(limit), month, year }),
       });
       const updated = await fetch(`${API_URL}/budgets/status?month=${month}&year=${year}`, {
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Email": email,
-        },
+        headers: { "Content-Type": "application/json", "X-User-Email": email },
       }).then((r) => r.json());
       setBudgets(Array.isArray(updated) ? updated : []);
       setCategory("");
@@ -70,19 +59,24 @@ export default function BudgetsPage() {
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
-      <h1 className="text-2xl font-bold text-gray-900">Budgets</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Budgets</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Set monthly spending limits by category</p>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Set Monthly Limit</CardTitle>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3 border-b border-gray-100">
+          <CardTitle className="text-sm font-semibold text-gray-800">Set Monthly Limit</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex gap-3 items-end">
-            <div className="flex flex-col gap-1 flex-1">
+        <CardContent className="pt-4 flex flex-col gap-4">
+          <div className="flex gap-3 items-end flex-wrap">
+            <div className="flex flex-col gap-1.5 flex-1 min-w-40">
               <label className="text-xs font-medium text-gray-600">Category</label>
               <Select value={category} onValueChange={(v) => v && setCategory(v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select category..." />
+                  <SelectValue placeholder="Select category...">
+                    {(v: string | null) => v || "Select category..."}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {CATEGORIES.filter((c) => c !== "Income").map((c) => (
@@ -91,7 +85,7 @@ export default function BudgetsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex flex-col gap-1 w-36">
+            <div className="flex flex-col gap-1.5 w-36">
               <label className="text-xs font-medium text-gray-600">Monthly Limit ($)</label>
               <Input
                 type="number"
@@ -102,40 +96,49 @@ export default function BudgetsPage() {
                 onChange={(e) => setLimit(e.target.value)}
               />
             </div>
-            <Button onClick={handleSave} disabled={saving || !category || !limit} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+            <Button
+              onClick={handleSave}
+              disabled={saving || !category || !limit}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
               {saving ? "Saving..." : "Save"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            {now.toLocaleString("default", { month: "long" })} {year} Progress
-          </CardTitle>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3 border-b border-gray-100">
+          <CardTitle className="text-sm font-semibold text-gray-800">Progress — {monthLabel}</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-5">
-          {budgets.length === 0 && (
-            <p className="text-sm text-gray-400">No budgets set for this month yet.</p>
-          )}
-          {budgets.map((b) => (
-            <div key={b.category}>
-              <div className="flex justify-between items-center mb-1.5">
-                <span className="text-sm font-semibold text-gray-700">{b.category}</span>
-                <span className={clsx("text-xs font-medium", b.percentage > 100 ? "text-red-600" : b.percentage > 80 ? "text-amber-600" : "text-gray-500")}>
-                  ${parseFloat(b.spent).toFixed(2)} / ${parseFloat(b.monthly_limit).toFixed(2)} ({b.percentage.toFixed(0)}%)
-                </span>
-              </div>
-              <Progress
-                value={Math.min(b.percentage, 100)}
-                className={clsx("h-2.5", b.percentage > 100 ? "[&>div]:bg-red-500" : b.percentage > 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-indigo-500")}
-              />
-              {b.percentage > 100 && (
-                <p className="text-xs text-red-500 mt-1">Over by ${Math.abs(parseFloat(b.remaining)).toFixed(2)}</p>
-              )}
+        <CardContent className="pt-4">
+          {budgets.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-10 text-gray-400">
+              <PiggyBank size={32} strokeWidth={1.5} />
+              <p className="text-sm">No budgets set for {monthLabel} yet.</p>
             </div>
-          ))}
+          ) : (
+            <div className="flex flex-col gap-5">
+              {budgets.map((b) => (
+                <div key={b.category} className="flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-semibold text-gray-700">{b.category}</span>
+                    <span className={clsx("text-xs font-medium", b.percentage > 100 ? "text-red-600" : b.percentage > 80 ? "text-amber-600" : "text-gray-500")}>
+                      ${parseFloat(b.spent).toFixed(2)} / ${parseFloat(b.monthly_limit).toFixed(2)}
+                      <span className="ml-1 text-gray-400">({b.percentage.toFixed(0)}%)</span>
+                    </span>
+                  </div>
+                  <Progress
+                    value={Math.min(b.percentage, 100)}
+                    className={clsx("h-2", b.percentage > 100 ? "[&>div]:bg-red-500" : b.percentage > 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-rose-500")}
+                  />
+                  {b.percentage > 100 && (
+                    <p className="text-xs text-red-500">Over by ${Math.abs(parseFloat(b.remaining)).toFixed(2)}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -87,8 +87,9 @@ export default function DropZone({ accounts, userEmail }: Props) {
   if (status === "confirmed") {
     return (
       <div className="flex flex-col items-center gap-3 py-12">
-        <CheckCircle className="text-green-500" size={40} />
+        <CheckCircle className="text-emerald-500" size={44} />
         <p className="text-lg font-semibold text-gray-700">Transactions saved!</p>
+        <p className="text-sm text-gray-400">Your statement has been processed and added to your account.</p>
         <Button variant="outline" onClick={() => { setStatus("idle"); setFile(null); setResult(null); }}>
           Upload another
         </Button>
@@ -102,25 +103,27 @@ export default function DropZone({ accounts, userEmail }: Props) {
         <p className="text-sm text-gray-600">{result.message}</p>
         <div className="max-h-80 overflow-y-auto border rounded-lg">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 sticky top-0">
+            <thead className="bg-gray-50 sticky top-0 border-b-2 border-gray-200">
               <tr>
                 {["Date", "Description", "Amount", "Type", "Category"].map((h) => (
-                  <th key={h} className="text-left px-3 py-2 text-xs font-semibold text-gray-500">{h}</th>
+                  <th key={h} className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {result.preview.map((tx: TransactionPreview, i: number) => (
-                <tr key={i} className="border-t hover:bg-gray-50">
-                  <td className="px-3 py-2 text-gray-600">{tx.date}</td>
-                  <td className="px-3 py-2 text-gray-800 max-w-xs truncate">{tx.description}</td>
-                  <td className="px-3 py-2 font-medium">${parseFloat(tx.amount).toFixed(2)}</td>
+                <tr key={i} className={clsx("border-t", tx.transaction_type === "credit" ? "bg-emerald-50/40 hover:bg-emerald-50" : "hover:bg-rose-50/30")}>
+                  <td className="px-3 py-2 text-gray-400 text-xs">{tx.date}</td>
+                  <td className="px-3 py-2 text-gray-800 font-medium max-w-xs truncate">{tx.description}</td>
+                  <td className={clsx("px-3 py-2 font-semibold tabular-nums", tx.transaction_type === "credit" ? "text-emerald-600" : "text-rose-600")}>
+                    {tx.transaction_type === "credit" ? "+" : "-"}${parseFloat(tx.amount).toFixed(2)}
+                  </td>
                   <td className="px-3 py-2">
-                    <span className={clsx("text-xs px-2 py-0.5 rounded-full font-medium", tx.transaction_type === "credit" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
+                    <span className={clsx("text-xs px-2 py-0.5 rounded-full font-medium", tx.transaction_type === "credit" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-600")}>
                       {tx.transaction_type}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-gray-600">{tx.category}</td>
+                  <td className="px-3 py-2 text-gray-500 text-xs">{tx.category}</td>
                 </tr>
               ))}
             </tbody>
@@ -190,21 +193,29 @@ export default function DropZone({ accounts, userEmail }: Props) {
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
         className={clsx(
-          "border-2 border-dashed rounded-xl p-12 flex flex-col items-center gap-3 cursor-pointer transition-colors",
-          dragging ? "border-indigo-500 bg-indigo-50" : "border-gray-300 hover:border-gray-400"
+          "border-2 border-dashed rounded-xl p-12 flex flex-col items-center gap-4 cursor-pointer transition-all duration-200",
+          dragging ? "border-indigo-500 bg-indigo-50/60" : file ? "border-emerald-400 bg-emerald-50/40" : "border-gray-200 bg-gray-50/50 hover:border-indigo-300 hover:bg-indigo-50/30"
         )}
       >
         <input ref={inputRef} type="file" accept=".pdf,.csv" className="hidden" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
         {file ? (
           <>
-            <FileText className="text-indigo-500" size={36} />
-            <p className="font-medium text-gray-700">{file.name}</p>
-            <p className="text-xs text-gray-400">{(file.size / 1024).toFixed(1)} KB</p>
+            <div className="relative">
+              <FileText className="text-indigo-500" size={48} />
+              <CheckCircle className="absolute -bottom-1 -right-1 text-emerald-500 bg-white rounded-full" size={18} />
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <p className="font-semibold text-gray-700">{file.name}</p>
+              <p className="text-xs text-gray-400">{(file.size / 1024).toFixed(1)} KB · Ready to upload</p>
+            </div>
           </>
         ) : (
           <>
-            <Upload className="text-gray-400" size={36} />
-            <p className="text-sm text-gray-500">Drag & drop a PDF or CSV, or click to browse</p>
+            <Upload className="text-gray-300" size={48} />
+            <div className="flex flex-col items-center gap-1">
+              <p className="text-sm font-medium text-gray-600">Drag & drop a PDF or CSV</p>
+              <p className="text-xs text-gray-400">or click to browse files</p>
+            </div>
           </>
         )}
       </div>
@@ -219,7 +230,7 @@ export default function DropZone({ accounts, userEmail }: Props) {
       <Button
         onClick={handleUpload}
         disabled={!file || !accountId || status === "uploading"}
-        className="bg-indigo-600 hover:bg-indigo-700 text-white w-fit"
+        className="bg-indigo-600 hover:bg-indigo-700 text-white w-full"
       >
         {status === "uploading" ? "Parsing with AI..." : "Upload & Parse"}
       </Button>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { TrendingUp, TrendingDown, Wallet, Receipt } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import MonthPicker from "@/components/dashboard/MonthPicker";
 import SpendingByCategory from "@/components/dashboard/SpendingByCategory";
@@ -17,6 +18,16 @@ const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
+
+function LoadingSkeleton() {
+  return (
+    <div className="animate-pulse flex flex-col gap-3">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="h-10 bg-gray-100 rounded-lg" />
+      ))}
+    </div>
+  );
+}
 
 export default function DashboardClient() {
   const { data: session, status } = useSession();
@@ -39,161 +50,162 @@ export default function DashboardClient() {
     }
 
     setLoading(true);
-    const headers = {
-      "Content-Type": "application/json",
-      "X-User-Email": email,
-    };
+    const headers = { "Content-Type": "application/json", "X-User-Email": email };
 
     Promise.all([
-      fetch(`${API_URL}/dashboard/summary?month=${month}&year=${year}`, { headers }).then((r) =>
-        r.ok ? r.json() : null
-      ),
-      fetch(`${API_URL}/budgets/status?month=${month}&year=${year}`, { headers }).then((r) =>
-        r.ok ? r.json() : []
-      ),
+      fetch(`${API_URL}/dashboard/summary?month=${month}&year=${year}`, { headers }).then((r) => r.ok ? r.json() : null),
+      fetch(`${API_URL}/budgets/status?month=${month}&year=${year}`, { headers }).then((r) => r.ok ? r.json() : []),
     ])
       .then(([summaryData, budgetData]) => {
         setSummary(summaryData);
         setBudgets(Array.isArray(budgetData) ? budgetData : []);
       })
-      .catch(() => {
-        setSummary(null);
-        setBudgets([]);
-      })
+      .catch(() => { setSummary(null); setBudgets([]); })
       .finally(() => setLoading(false));
   }, [month, year, session?.user?.email, status]);
 
   const monthLabel = `${MONTH_NAMES[month - 1]} ${year}`;
+  const income = parseFloat(summary?.total_income_this_month ?? "0");
+  const spent = parseFloat(summary?.total_spent_this_month ?? "0");
+  const net = income - spent;
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Overview</h1>
-        <MonthPicker
-          month={month}
-          year={year}
-          onChange={(m, y) => {
-            setMonth(m);
-            setYear(y);
-          }}
-        />
+      {/* Header */}
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Overview</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{monthLabel}</p>
+        </div>
+        <MonthPicker month={month} year={year} onChange={(m, y) => { setMonth(m); setYear(y); }} />
       </div>
 
-      {loading && (
-        <p className="text-sm text-gray-400">Loading dashboard...</p>
-      )}
-
       {/* KPI row */}
-      {(() => {
-        const income = parseFloat(summary?.total_income_this_month ?? "0");
-        const spent = parseFloat(summary?.total_spent_this_month ?? "0");
-        const net = income - spent;
-        return (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-1">
-                <CardTitle className="text-sm font-medium text-gray-500">Money In — {MONTH_NAMES[month - 1]}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-green-600">+${income.toFixed(2)}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-1">
-                <CardTitle className="text-sm font-medium text-gray-500">Money Out — {MONTH_NAMES[month - 1]}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-indigo-600">-${spent.toFixed(2)}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-1">
-                <CardTitle className="text-sm font-medium text-gray-500">Net — {MONTH_NAMES[month - 1]}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className={`text-2xl font-bold ${net >= 0 ? "text-green-600" : "text-red-500"}`}>
-                  {net >= 0 ? "+" : "-"}${Math.abs(net).toFixed(2)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-1">
-                <CardTitle className="text-sm font-medium text-gray-500">Transactions — {MONTH_NAMES[month - 1]}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-gray-900">{summary?.transaction_count_this_month ?? 0}</p>
-              </CardContent>
-            </Card>
-          </div>
-        );
-      })()}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Card className="shadow-sm border-l-4 border-l-emerald-500">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Money In</CardTitle>
+              <TrendingUp size={16} className="text-emerald-500" />
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 pt-0">
+            <p className="text-2xl font-bold text-emerald-600">+${income.toFixed(2)}</p>
+            <p className="text-xs text-gray-400 mt-1">{MONTH_NAMES[month - 1]}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm border-l-4 border-l-rose-500">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Money Out</CardTitle>
+              <TrendingDown size={16} className="text-rose-500" />
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 pt-0">
+            <p className="text-2xl font-bold text-rose-600">-${spent.toFixed(2)}</p>
+            <p className="text-xs text-gray-400 mt-1">{MONTH_NAMES[month - 1]}</p>
+          </CardContent>
+        </Card>
+
+        <Card className={`shadow-sm border-l-4 ${net >= 0 ? "border-l-emerald-500" : "border-l-rose-500"}`}>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Net</CardTitle>
+              <Wallet size={16} className={net >= 0 ? "text-emerald-500" : "text-rose-500"} />
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 pt-0">
+            <p className={`text-2xl font-bold ${net >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+              {net >= 0 ? "+" : "-"}${Math.abs(net).toFixed(2)}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">{MONTH_NAMES[month - 1]}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm border-l-4 border-l-indigo-400">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Transactions</CardTitle>
+              <Receipt size={16} className="text-indigo-400" />
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 pt-0">
+            <p className="text-2xl font-bold text-gray-800">{summary?.transaction_count_this_month ?? 0}</p>
+            <p className="text-xs text-gray-400 mt-1">{MONTH_NAMES[month - 1]}</p>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Spending by Category</CardTitle>
-            <p className="text-xs text-gray-500">Click a category to see individual payments</p>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-3 border-b border-gray-100">
+            <CardTitle className="text-sm font-semibold text-gray-800">Spending by Category</CardTitle>
+            <p className="text-xs text-gray-400 mt-0.5">Click a category to see transactions</p>
           </CardHeader>
-          <CardContent>
-            <SpendingByCategory
-              data={summary?.by_category ?? []}
-              onCategoryClick={(cat) => { setSelectedType("debit"); setSelectedCategory(cat); }}
-            />
+          <CardContent className="pt-4">
+            {loading ? <LoadingSkeleton /> : (
+              <SpendingByCategory
+                data={summary?.by_category ?? []}
+                onCategoryClick={(cat) => { setSelectedType("debit"); setSelectedCategory(cat); }}
+              />
+            )}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Income by Category</CardTitle>
-            <p className="text-xs text-gray-500">Click a category to see individual transactions</p>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-3 border-b border-gray-100">
+            <CardTitle className="text-sm font-semibold text-gray-800">Income by Category</CardTitle>
+            <p className="text-xs text-gray-400 mt-0.5">Click a category to see transactions</p>
           </CardHeader>
-          <CardContent>
-            <SpendingByCategory
-              data={summary?.income_by_category ?? []}
-              onCategoryClick={(cat) => { setSelectedType("credit"); setSelectedCategory(cat); }}
-              valueLabel="Income"
-            />
+          <CardContent className="pt-4">
+            {loading ? <LoadingSkeleton /> : (
+              <SpendingByCategory
+                data={summary?.income_by_category ?? []}
+                onCategoryClick={(cat) => { setSelectedType("credit"); setSelectedCategory(cat); }}
+                valueLabel="Income"
+              />
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Trend row */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Monthly Trend</CardTitle>
+      {/* Trend */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3 border-b border-gray-100">
+          <CardTitle className="text-sm font-semibold text-gray-800">Monthly Trend</CardTitle>
+          <p className="text-xs text-gray-400 mt-0.5">Click a point to drill into that month</p>
         </CardHeader>
-        <CardContent>
-          <MonthlyTrend
-            data={summary?.monthly_trend ?? []}
-            onMonthClick={(m, y) => {
-              setMonth(m);
-              setYear(y);
-            }}
-          />
+        <CardContent className="pt-4">
+          {loading ? <LoadingSkeleton /> : (
+            <MonthlyTrend data={summary?.monthly_trend ?? []} onMonthClick={(m, y) => { setMonth(m); setYear(y); }} />
+          )}
         </CardContent>
       </Card>
 
-      {/* Monthly breakdown table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Monthly Summary</CardTitle>
-          <p className="text-xs text-gray-500">Click a row to drill into that month</p>
+      {/* Monthly breakdown */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3 border-b border-gray-100">
+          <CardTitle className="text-sm font-semibold text-gray-800">Monthly Summary</CardTitle>
+          <p className="text-xs text-gray-400 mt-0.5">Click a row to drill into that month</p>
         </CardHeader>
         <CardContent className="p-0 pb-2">
-          <MonthlyBreakdown
-            data={summary?.monthly_trend ?? []}
-            onMonthClick={(m, y) => { setMonth(m); setYear(y); }}
-          />
+          {loading ? (
+            <div className="p-4"><LoadingSkeleton /></div>
+          ) : (
+            <MonthlyBreakdown data={summary?.monthly_trend ?? []} onMonthClick={(m, y) => { setMonth(m); setYear(y); }} />
+          )}
         </CardContent>
       </Card>
 
       {/* Budget progress */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Budget Progress — {monthLabel}</CardTitle>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3 border-b border-gray-100">
+          <CardTitle className="text-sm font-semibold text-gray-800">Budget Progress</CardTitle>
+          <p className="text-xs text-gray-400 mt-0.5">{monthLabel}</p>
         </CardHeader>
-        <CardContent>
-          <BudgetProgress budgets={budgets} />
+        <CardContent className="pt-4">
+          {loading ? <LoadingSkeleton /> : <BudgetProgress budgets={budgets} />}
         </CardContent>
       </Card>
 
@@ -203,9 +215,7 @@ export default function DashboardClient() {
         year={year}
         open={selectedCategory !== null}
         transactionType={selectedType}
-        onOpenChange={(open) => {
-          if (!open) setSelectedCategory(null);
-        }}
+        onOpenChange={(open) => { if (!open) setSelectedCategory(null); }}
       />
     </div>
   );
