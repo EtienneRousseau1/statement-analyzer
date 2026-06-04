@@ -2,7 +2,6 @@ from fastapi import Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from ..config import settings
 from ..database import get_db
-from ..models.account import Account
 from ..models.user import User
 from typing import Optional
 
@@ -34,18 +33,5 @@ def get_current_user(
         db.add(user)
         db.commit()
         db.refresh(user)
-
-    # Auto-create a default account the first time we see this user
-    has_account = db.query(Account.id).filter(Account.user_id == user.id).first()
-    if not has_account:
-        default_account = Account(
-            user_id=user.id,
-            name="Primary Checking",
-            institution=None,
-            account_type="checking",
-            last_four=None,
-        )
-        db.add(default_account)
-        db.commit()
 
     return user

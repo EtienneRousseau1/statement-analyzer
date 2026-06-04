@@ -40,7 +40,7 @@ export default async function UploadPage() {
         <CardContent>
           {accounts.length === 0 ? (
             <p className="text-sm text-amber-600">
-              You need to add an account before uploading. (Account management coming soon — for now add one via the API.)
+              No accounts found. Add an account before uploading a statement.
             </p>
           ) : (
             <DropZone accounts={accounts} userEmail={userEmail} />

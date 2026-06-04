@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Upload, List, Target, LogOut } from "lucide-react";
+import { LayoutDashboard, Upload, List, Target, Wallet, LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { clsx } from "clsx";
 
@@ -11,6 +11,7 @@ const NAV = [
   { href: "/upload", label: "Upload", icon: Upload },
   { href: "/transactions", label: "Transactions", icon: List },
   { href: "/budgets", label: "Budgets", icon: Target },
+  { href: "/accounts", label: "Accounts", icon: Wallet },
 ];
 
 export default function Sidebar() {

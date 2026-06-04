@@ -115,8 +115,6 @@ def summary(
             Transaction.transaction_type == "debit",
         )
         .group_by("yr", "mo")
-        .order_by("yr", "mo")
-        .limit(6)
         .all()
     )
 
@@ -134,7 +132,20 @@ def summary(
         .group_by("yr", "mo")
         .all()
     )
+
+    spend_map = {(int(r.yr), int(r.mo)): Decimal(str(r.total)) for r in spend_rows}
     income_map = {(int(r.yr), int(r.mo)): Decimal(str(r.total)) for r in income_rows}
+    all_month_keys = sorted(set(spend_map.keys()) | set(income_map.keys()))
+
+    monthly_trend = [
+        MonthlyTotal(
+            year=yr,
+            month=mo,
+            total=spend_map.get((yr, mo), Decimal("0")),
+            income=income_map.get((yr, mo), Decimal("0")),
+        )
+        for yr, mo in all_month_keys
+    ]
 
     income_by_category_rows = (
         month_base.filter(Transaction.transaction_type == "credit")
@@ -145,16 +156,6 @@ def summary(
     )
     income_by_category = [
         CategoryTotal(category=row[0], total=Decimal(str(row[1]))) for row in income_by_category_rows
-    ]
-
-    monthly_trend = [
-        MonthlyTotal(
-            year=int(row.yr),
-            month=int(row.mo),
-            total=Decimal(str(row.total)),
-            income=income_map.get((int(row.yr), int(row.mo)), Decimal("0")),
-        )
-        for row in spend_rows
     ]
 
     account_count = db.query(Account).filter(Account.user_id == current_user.id).count()

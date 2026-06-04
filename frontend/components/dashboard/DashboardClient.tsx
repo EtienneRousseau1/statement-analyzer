@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import MonthPicker from "@/components/dashboard/MonthPicker";
 import SpendingByCategory from "@/components/dashboard/SpendingByCategory";
 import MonthlyTrend from "@/components/dashboard/MonthlyTrend";
+import MonthlyBreakdown from "@/components/dashboard/MonthlyBreakdown";
 import BudgetProgress from "@/components/dashboard/BudgetProgress";
 import CategoryTransactionsDialog from "@/components/dashboard/CategoryTransactionsDialog";
 import { DashboardSummary, BudgetStatus } from "@/types";
@@ -168,6 +169,20 @@ export default function DashboardClient() {
               setMonth(m);
               setYear(y);
             }}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Monthly breakdown table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Monthly Summary</CardTitle>
+          <p className="text-xs text-gray-500">Click a row to drill into that month</p>
+        </CardHeader>
+        <CardContent className="p-0 pb-2">
+          <MonthlyBreakdown
+            data={summary?.monthly_trend ?? []}
+            onMonthClick={(m, y) => { setMonth(m); setYear(y); }}
           />
         </CardContent>
       </Card>
