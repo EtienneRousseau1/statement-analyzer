@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: statement_analyzer
+    ports:
+      # Host port 5433 to avoid clashing with a locally-running Postgres on
+      # 5432. Containers still talk to each other over 5432 internally.
+      - "5433:5432"
+    volumes:
+      - statement_analyzer_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env.local
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/statement_analyzer
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  statement_analyzer_pgdata:
