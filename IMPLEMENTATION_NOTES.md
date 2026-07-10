@@ -48,7 +48,6 @@
 5. Add to `backend/.env.local`:
    ```
    GOOGLE_CLOUD_PROJECT=<your-gcp-project-id>
-   GOOGLE_CLOUD_LOCATION=us-central1
    ```
 
 #### Google OAuth Credentials

@@ -100,7 +100,6 @@ Edit `backend/.env.local` and update these values:
 DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/statement_analyzer
 NEXTAUTH_SECRET=dev-secret-change-in-production-12345678901234567
 GOOGLE_CLOUD_PROJECT=<your-gcp-project-id>
-GOOGLE_CLOUD_LOCATION=us-central1
 FRONTEND_URL=http://localhost:3000
 ```
 
@@ -133,10 +132,14 @@ gcloud config set project <your-gcp-project-id>
 
 ```env
 GOOGLE_CLOUD_PROJECT=<your-gcp-project-id>
-GOOGLE_CLOUD_LOCATION=us-central1
 ```
 
 6. Make sure the Google account you used for ADC has Vertex AI permission on the project.
+
+> Note: there's no `GOOGLE_CLOUD_LOCATION` setting — the `google-genai` client
+> defaults to Vertex AI's `global` endpoint when no location is set, which is
+> what this app relies on. (An older version of these docs referenced this
+> var; setting it does nothing since `app/config.py` never reads it.)
 
 ## Step 3: Frontend Setup
 

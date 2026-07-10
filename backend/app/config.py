@@ -1,4 +1,3 @@
-import json
 import os
 import tempfile
 
@@ -9,6 +8,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=(".env.local", ".env"),
         env_file_encoding="utf-8",
+        # Tolerate stray/legacy vars in .env files (e.g. GOOGLE_CLOUD_LOCATION,
+        # which older docs referenced but no field here ever consumed) instead
+        # of crashing app startup on any undeclared key.
+        extra="ignore",
     )
 
     database_url: str = "postgresql+psycopg://user:password@localhost:5432/statement_analyzer"

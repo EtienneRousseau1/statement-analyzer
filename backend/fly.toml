@@ -1,6 +1,8 @@
 # Fly.io app config for the FastAPI backend.
-# Deploy from the backend/ directory: `fly launch` (first time) or `fly deploy`.
-# App name must be globally unique on Fly — change it before first launch.
+# Deploy from the backend/ directory. First time: `fly apps create <name>`,
+# then `fly deploy` (this reuses this checked-in file — no need for the
+# interactive `fly launch` wizard). App name must be globally unique on Fly —
+# change it below before creating the app. See ../DEPLOY.md for full steps.
 app = "statement-analyzer-api"
 primary_region = "iad"
 
@@ -15,7 +17,6 @@ primary_region = "iad"
   auto_stop_machines = "stop"
   auto_start_machines = true
   min_machines_running = 0
-  processes = ["app"]
 
   [[http_service.checks]]
     grace_period = "10s"
