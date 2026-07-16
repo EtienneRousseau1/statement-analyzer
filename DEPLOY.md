@@ -5,17 +5,34 @@ Estimated cost: **$0–5/month** (Vercel Hobby free, Neon free tier, Fly small V
 ~$2–4/mo or $0 with scale-to-zero) plus Gemini API usage (~cents per statement
 parsed).
 
+## Current status
+
+| Step | Status |
+|---|---|
+| 1. Neon DB | ✅ done — migrated, tables verified |
+| 2. GCP service account | ✅ done — verified with a real Gemini call |
+| 3. Fly backend | ✅ live at https://statement-analyzer-api.fly.dev |
+| 4. Vercel frontend | ✅ live at https://frontend-iota-lac-79.vercel.app |
+| Google OAuth redirect URI | ⏳ **pending** — sign-in won't work until this is added (see step 4) |
+| 6. Smoke test | ⏳ pending on the OAuth step above |
+
 Do these roughly in order — later steps need values produced by earlier ones.
 
 ## 1. Database: Neon
 
+**Status: done.** The project's already created, and `alembic upgrade head`
+has been run against it — `accounts`, `users`, `transactions`, `budgets`,
+`statements`, and `alembic_version` all exist. Nothing left to do here except
+keep the connection string for the Fly step below.
+
 1. Create a free project at https://neon.tech.
-2. Create a database named `statement_analyzer` (or use the default one Neon
-   creates).
+2. Neon creates a default database named `neondb` — there's no need to
+   create one called `statement_analyzer`; the app doesn't care what the
+   database is named, it just uses whatever's in `DATABASE_URL`.
 3. Copy the **direct** connection string from the Neon dashboard — the one
    *without* `-pooler` in the hostname. It looks like:
    ```
-   postgresql://user:password@ep-xxxx.us-east-1.aws.neon.tech/statement_analyzer?sslmode=require
+   postgresql://neondb_owner:<password>@ep-xxxx-xxxx.<region>.aws.neon.tech/neondb?sslmode=require
    ```
    Use the direct string, not the pooled one, even though Neon's UI often
    surfaces the pooled string first. Reason: Neon's pooled endpoint runs
@@ -29,11 +46,19 @@ Do these roughly in order — later steps need values produced by earlier ones.
 4. Convert it to the SQLAlchemy/psycopg form the app expects (swap the
    scheme, keep everything else):
    ```
-   postgresql+psycopg://user:password@ep-xxxx.us-east-1.aws.neon.tech/statement_analyzer?sslmode=require
+   postgresql+psycopg://neondb_owner:<password>@ep-xxxx-xxxx.<region>.aws.neon.tech/neondb?sslmode=require
    ```
-   Save this — it's your production `DATABASE_URL`.
+   Save this — it's your production `DATABASE_URL`. Treat it as a secret:
+   don't commit it anywhere. It only needs to live in two places — Fly
+   secrets (step 3) and, optionally, `backend/.env.local` (gitignored) if
+   you want to point local dev at the real Neon DB instead of the Docker
+   Postgres.
 
 ## 2. Gemini auth: GCP service account
+
+**Status: done.** Service account `statement-analyzer-backend` was created
+with the `Vertex AI User` role and verified with a real Gemini call through
+Vertex before being wired in.
 
 The app talks to Gemini through Vertex AI. Locally it uses your personal
 `gcloud auth application-default login` session — that doesn't exist in a
@@ -61,6 +86,28 @@ picks up automatically via standard Google auth credential discovery.
 
 ## 3. Backend: Fly.io
 
+**Status: done, live at https://statement-analyzer-api.fly.dev** (`/health`
+returns `{"status":"ok"}`). One thing worth knowing for future deploys: Fly
+launches **2 machines by default** on a fresh app for high availability, even
+with `min_machines_running = 0` in `fly.toml` — that setting controls the
+*idle floor*, not the initial machine count. For a personal app that's
+unnecessary (idle cost is $0 either way since both scale to zero, but 2
+machines means up to 2x compute cost during simultaneous traffic). After the
+first deploy, scale down once:
+```bash
+fly scale count 1 --app statement-analyzer-api --yes
+```
+Fly also required a credit card on file before creating any app at all (their
+free tier was removed) — note that **Fly has no spending cap or billing
+alert feature**; the scale-to-zero config keeps realistic cost low but
+doesn't hard-limit it. If you want a hard ceiling, set a spending alert on
+the card itself, since Fly doesn't offer one.
+
+Also note: `flyctl` versions before ~0.4.x don't understand the current
+`fly.toml` schema (e.g. `auto_stop_machines` as a string) and will throw a
+config validation warning — run `brew upgrade flyctl` (or equivalent) if you
+hit that.
+
 Install the CLI and log in:
 ```bash
 curl -L https://fly.io/install.sh | sh
@@ -82,12 +129,17 @@ fly apps create statement-analyzer-api   # use the same name as in fly.toml
 Set secrets (never put these in `fly.toml`, which can end up in git):
 ```bash
 fly secrets set \
-  DATABASE_URL="postgresql+psycopg://user:password@ep-xxxx.us-east-1.aws.neon.tech/statement_analyzer?sslmode=require" \
+  DATABASE_URL="postgresql+psycopg://neondb_owner:<password>@ep-xxxx-xxxx.<region>.aws.neon.tech/neondb?sslmode=require" \
   NEXTAUTH_SECRET="$(openssl rand -hex 32)" \
   GOOGLE_CLOUD_PROJECT="your-gcp-project-id" \
   GOOGLE_APPLICATION_CREDENTIALS_JSON='<paste the minified JSON from step 2>' \
   FRONTEND_URL="https://your-app.vercel.app"
 ```
+(`FRONTEND_URL` is a placeholder until step 4 gives you a real Vercel domain —
+CORS will reject the frontend until you update it with `fly secrets set
+FRONTEND_URL="https://<your-real-domain>" --app statement-analyzer-api`.
+`fly secrets set` automatically restarts the machine to pick up the new
+value — no separate `fly deploy` needed.)
 
 Deploy:
 ```bash
@@ -116,34 +168,69 @@ autosuspend independently unless you're on a paid plan).
 
 ## 4. Frontend: Vercel
 
-1. Import the repo at https://vercel.com/new.
-2. **Root Directory**: set to `frontend` (this is a monorepo — Vercel needs
-   to know where the Next.js app lives). `frontend/vercel.json` handles the
-   rest (framework detection, build command, basic security headers).
-3. Add environment variables (Project Settings → Environment Variables):
-   ```
-   NEXT_PUBLIC_API_URL=https://statement-analyzer-api.fly.dev
-   AUTH_SECRET=<same value as NEXTAUTH_SECRET set in Fly secrets>
-   AUTH_GOOGLE_ID=<your Google OAuth client ID>
-   AUTH_GOOGLE_SECRET=<your Google OAuth client secret>
-   ```
-   `AUTH_SECRET` and the backend's `NEXTAUTH_SECRET` **must match** — they
-   sign/verify the same session.
+**Status: deployed, live at https://frontend-iota-lac-79.vercel.app.**
+Pending: adding the redirect URI below (Google sign-in won't work until
+that's done — everything else is live).
 
-   `AUTH_URL` is optional on Vercel — next-auth v5 infers the host from the
-   request and auto-trusts it when it detects the `VERCEL` env var (which
-   Vercel sets for you). Only add `AUTH_URL` explicitly if you later put a
-   custom domain or reverse proxy in front of the app.
-4. Deploy.
+Deployed via the Vercel CLI rather than the dashboard "Import" flow (works
+identically, just scriptable — useful since this is a monorepo where the
+dashboard import needs manual Root Directory configuration anyway):
+
+```bash
+cd frontend
+npx vercel login       # opens a browser to authenticate
+npx vercel link --yes  # creates/links the Vercel project
+```
+
+Add production environment variables (never printed to a terminal you don't
+control — pull values from `frontend/.env.local` / the Fly secret you
+already set rather than retyping them):
+```bash
+printf "%s" "https://statement-analyzer-api.fly.dev" | npx vercel env add NEXT_PUBLIC_API_URL production
+printf "%s" "<same value as NEXTAUTH_SECRET set in Fly secrets>" | npx vercel env add AUTH_SECRET production
+printf "%s" "<your Google OAuth client ID>" | npx vercel env add AUTH_GOOGLE_ID production
+printf "%s" "<your Google OAuth client secret>" | npx vercel env add AUTH_GOOGLE_SECRET production
+```
+`AUTH_SECRET` and the backend's `NEXTAUTH_SECRET` **must be the identical
+value** — they sign/verify the same session. Don't generate a fresh one here;
+reuse exactly what's in the Fly secret.
+
+`AUTH_URL` is intentionally not set — next-auth v5 infers the host from the
+request and auto-trusts it when it detects the `VERCEL` env var (Vercel sets
+this for you). Only add `AUTH_URL` if you later put a custom domain or
+reverse proxy in front of the app.
+
+Deploy to production:
+```bash
+npx vercel --prod --yes
+```
+
+**Note**: `next build` type-checks strictly, unlike `next dev` — if this is
+the first production build, watch for TypeScript errors that dev mode never
+surfaced. (This repo had three: `Select`'s `onValueChange` passes
+`string | null`, but a few call sites wired it straight into
+`Dispatch<SetStateAction<string>>` setters, which reject `null`. Fixed with
+an `(v) => v && setX(v)` guard, matching the pattern already used elsewhere
+in the codebase — `AccountManager.tsx`, `AccountSetup.tsx`,
+`RecentUploads.tsx`.)
+
+After deploying, update the backend's CORS allowlist to the real domain
+(`fly secrets set` restarts the machine automatically, no redeploy needed):
+```bash
+fly secrets set FRONTEND_URL="https://<your-real-domain>.vercel.app" --app statement-analyzer-api
+```
 
 ### Update Google OAuth redirect URI
 Back in GCP Console → **APIs & Services** → **Credentials** → your OAuth
 client:
-- Add authorized JavaScript origin: `https://your-app.vercel.app`
+- Add authorized JavaScript origin: `https://<your-real-domain>.vercel.app`
 - Add authorized redirect URI:
-  `https://your-app.vercel.app/api/auth/callback/google`
+  `https://<your-real-domain>.vercel.app/api/auth/callback/google`
 
 (Keep the `localhost:3000` entries too — you'll still want local dev to work.)
+
+This step can't be scripted via `gcloud` — Google doesn't expose OAuth
+client redirect URIs through any CLI, only the Console UI.
 
 ## 5. CORS
 

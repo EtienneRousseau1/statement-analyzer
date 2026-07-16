@@ -134,7 +134,7 @@ export default function AccountManager({ initialAccounts, userEmail }: Props) {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label>Account Type</Label>
-                <Select value={accountType} onValueChange={setAccountType}>
+                <Select value={accountType} onValueChange={(v) => v && setAccountType(v)}>
                   <SelectTrigger>
                     <SelectValue>
                       {(v: string | null) =>

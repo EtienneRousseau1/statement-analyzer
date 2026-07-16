@@ -58,7 +58,7 @@ export default function RecentUploads({ initialStatements, accounts, apiUrl, use
 
           <Select
             value={String(s.account_id)}
-            onValueChange={(v) => handleReassign(s.id, v)}
+            onValueChange={(v) => v && handleReassign(s.id, v)}
           >
             <SelectTrigger className="w-44 h-8 text-xs">
               <SelectValue>
