@@ -29,22 +29,27 @@ export default function AccountSetup({ userEmail }: Props) {
     setSaving(true);
     setError("");
 
-    const res = await fetch(`${API_URL}/accounts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-User-Email": userEmail },
-      body: JSON.stringify({
-        name: name.trim(),
-        account_type: accountType,
-        institution: institution.trim() || null,
-        last_four: lastFour.trim() || null,
-      }),
-    });
+    try {
+      const res = await fetch(`${API_URL}/accounts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-User-Email": userEmail },
+        body: JSON.stringify({
+          name: name.trim(),
+          account_type: accountType,
+          institution: institution.trim() || null,
+          last_four: lastFour.trim() || null,
+        }),
+      });
 
-    if (res.ok) {
-      router.refresh();
-    } else {
-      const err = await res.json().catch(() => ({}));
-      setError(err.detail ?? "Failed to create account");
+      if (res.ok) {
+        router.refresh();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setError(err.detail ?? "Failed to create account");
+        setSaving(false);
+      }
+    } catch {
+      setError("Couldn't reach the server. Please try again.");
       setSaving(false);
     }
   };

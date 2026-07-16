@@ -41,29 +41,34 @@ export default function AccountManager({ initialAccounts, userEmail }: Props) {
     setSaving(true);
     setError("");
 
-    const res = await fetch(`${API_URL}/accounts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeader },
-      body: JSON.stringify({
-        name: name.trim(),
-        account_type: accountType,
-        institution: institution.trim() || null,
-        last_four: lastFour.trim() || null,
-      }),
-    });
+    try {
+      const res = await fetch(`${API_URL}/accounts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeader },
+        body: JSON.stringify({
+          name: name.trim(),
+          account_type: accountType,
+          institution: institution.trim() || null,
+          last_four: lastFour.trim() || null,
+        }),
+      });
 
-    if (res.ok) {
-      const created: Account = await res.json();
-      setAccounts((prev) => [...prev, created]);
-      setName("");
-      setInstitution("");
-      setLastFour("");
-      router.refresh();
-    } else {
-      const err = await res.json().catch(() => ({}));
-      setError(err.detail ?? "Failed to create account");
+      if (res.ok) {
+        const created: Account = await res.json();
+        setAccounts((prev) => [...prev, created]);
+        setName("");
+        setInstitution("");
+        setLastFour("");
+        router.refresh();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setError(err.detail ?? "Failed to create account");
+      }
+    } catch {
+      setError("Couldn't reach the server. Please try again.");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const handleDelete = async (id: number) => {
