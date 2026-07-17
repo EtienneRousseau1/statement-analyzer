@@ -1,34 +1,56 @@
-from fastapi import Depends, HTTPException, status, Header
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from ..config import settings
 from ..database import get_db
 from ..models.user import User
-from typing import Optional
+
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
-    x_user_email: Optional[str] = Header(None),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> User:
     """
-    Extract user from X-User-Email header (set by frontend).
-    This is a simplified auth flow for development.
-    In production, verify actual JWT tokens.
+    Verify the signed token minted by the frontend's NextAuth session
+    callback (HS256, signed with the shared NEXTAUTH_SECRET/AUTH_SECRET) and
+    resolve the user from its verified `email` claim. Replaces trusting a
+    plain client-supplied X-User-Email header, which let anyone who could
+    reach this API directly impersonate any user by just setting a header.
     """
-    if not x_user_email:
+    if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="X-User-Email header required"
+            detail="Authorization header required",
+        )
+
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            settings.nextauth_secret,
+            algorithms=["HS256"],
+        )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+
+    email = payload.get("email")
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token missing email claim",
         )
 
     # Find user by email; create if doesn't exist (auto-upsert on first access)
-    user = db.query(User).filter(User.email == x_user_email).first()
+    user = db.query(User).filter(User.email == email).first()
     if not user:
-        # This could happen if user logs in via OAuth but never hit an auth/me endpoint
-        # For now, create/trust them based on the header
         user = User(
-            email=x_user_email,
-            name=x_user_email.split("@")[0],  # Use part before @ as temporary name
+            email=email,
+            name=email.split("@")[0],  # Use part before @ as temporary name
         )
         db.add(user)
         db.commit()

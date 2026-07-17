@@ -41,8 +41,8 @@ export default function DashboardClient() {
   const [selectedType, setSelectedType] = useState<"debit" | "credit">("debit");
 
   useEffect(() => {
-    const email = session?.user?.email;
-    if (status !== "authenticated" || !email) {
+    const token = session?.backendToken;
+    if (status !== "authenticated" || !token) {
       setSummary(null);
       setBudgets([]);
       setLoading(false);
@@ -50,7 +50,7 @@ export default function DashboardClient() {
     }
 
     setLoading(true);
-    const headers = { "Content-Type": "application/json", "X-User-Email": email };
+    const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
     Promise.all([
       fetch(`${API_URL}/dashboard/summary?month=${month}&year=${year}`, { headers }).then((r) => r.ok ? r.json() : null),
@@ -62,7 +62,7 @@ export default function DashboardClient() {
       })
       .catch(() => { setSummary(null); setBudgets([]); })
       .finally(() => setLoading(false));
-  }, [month, year, session?.user?.email, status]);
+  }, [month, year, session?.backendToken, status]);
 
   const monthLabel = `${MONTH_NAMES[month - 1]} ${year}`;
   const income = parseFloat(summary?.total_income_this_month ?? "0");
