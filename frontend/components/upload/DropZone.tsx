@@ -9,10 +9,10 @@ import { clsx } from "clsx";
 
 interface Props {
   accounts: Account[];
-  userEmail: string;
+  backendToken: string;
 }
 
-export default function DropZone({ accounts, userEmail }: Props) {
+export default function DropZone({ accounts, backendToken }: Props) {
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [accountId, setAccountId] = useState<string>("");
@@ -46,7 +46,7 @@ export default function DropZone({ accounts, userEmail }: Props) {
       const res = await fetch(`${apiUrl}/upload`, {
         method: "POST",
         headers: {
-          "X-User-Email": userEmail,
+          Authorization: `Bearer ${backendToken}`,
         },
         body: form,
       });
@@ -77,7 +77,7 @@ export default function DropZone({ accounts, userEmail }: Props) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-User-Email": userEmail,
+        Authorization: `Bearer ${backendToken}`,
       },
       body: JSON.stringify({ statement_id: result.statement.id }),
     });

@@ -20,10 +20,10 @@ const TYPE_LABELS: Record<string, string> = {
 
 interface Props {
   initialAccounts: Account[];
-  userEmail: string;
+  backendToken: string;
 }
 
-export default function AccountManager({ initialAccounts, userEmail }: Props) {
+export default function AccountManager({ initialAccounts, backendToken }: Props) {
   const router = useRouter();
   const [accounts, setAccounts] = useState(initialAccounts);
   const [name, setName] = useState("");
@@ -33,7 +33,7 @@ export default function AccountManager({ initialAccounts, userEmail }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const authHeader = { "X-User-Email": userEmail };
+  const authHeader = { Authorization: `Bearer ${backendToken}` };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -11,10 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 interface Props {
-  userEmail: string;
+  backendToken: string;
 }
 
-export default function AccountSetup({ userEmail }: Props) {
+export default function AccountSetup({ backendToken }: Props) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [accountType, setAccountType] = useState("checking");
@@ -32,7 +32,7 @@ export default function AccountSetup({ userEmail }: Props) {
     try {
       const res = await fetch(`${API_URL}/accounts`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-User-Email": userEmail },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${backendToken}` },
         body: JSON.stringify({
           name: name.trim(),
           account_type: accountType,
@@ -46,10 +46,15 @@ export default function AccountSetup({ userEmail }: Props) {
       } else {
         const err = await res.json().catch(() => ({}));
         setError(err.detail ?? "Failed to create account");
-        setSaving(false);
       }
     } catch {
       setError("Couldn't reach the server. Please try again.");
+    } finally {
+      // If the parent layout doesn't swap this component away after a
+      // successful create (e.g. its own server-side account check fails),
+      // the button must still recover instead of staying stuck on "Adding…"
+      // forever — this is what caused duplicate accounts before: users kept
+      // retrying a submit that had actually already succeeded.
       setSaving(false);
     }
   };

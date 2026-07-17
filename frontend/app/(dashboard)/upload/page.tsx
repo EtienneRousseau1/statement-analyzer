@@ -27,7 +27,7 @@ export default async function UploadPage() {
     getStatements(),
     auth(),
   ]);
-  const userEmail = session?.user?.email ?? "";
+  const backendToken = session?.backendToken ?? "";
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
   return (
@@ -46,7 +46,7 @@ export default async function UploadPage() {
               No accounts found. Add an account before uploading a statement.
             </p>
           ) : (
-            <DropZone accounts={accounts} userEmail={userEmail} />
+            <DropZone accounts={accounts} backendToken={backendToken} />
           )}
         </CardContent>
       </Card>
@@ -61,7 +61,7 @@ export default async function UploadPage() {
               initialStatements={statements}
               accounts={accounts}
               apiUrl={apiUrl}
-              userEmail={userEmail}
+              backendToken={backendToken}
             />
           </CardContent>
         </Card>

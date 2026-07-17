@@ -26,28 +26,28 @@ export default function BudgetsPage() {
   const monthLabel = now.toLocaleString("default", { month: "long", year: "numeric" });
 
   useEffect(() => {
-    const email = session?.user?.email;
-    if (status !== "authenticated" || !email) { setBudgets([]); return; }
+    const token = session?.backendToken;
+    if (status !== "authenticated" || !token) { setBudgets([]); return; }
     fetch(`${API_URL}/budgets/status?month=${month}&year=${year}`, {
-      headers: { "Content-Type": "application/json", "X-User-Email": email },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
       .then((data) => setBudgets(Array.isArray(data) ? data : []))
       .catch(() => setBudgets([]));
-  }, [month, year, session?.user?.email, status]);
+  }, [month, year, session?.backendToken, status]);
 
   const handleSave = async () => {
-    const email = session?.user?.email;
-    if (!category || !limit || status !== "authenticated" || !email) return;
+    const token = session?.backendToken;
+    if (!category || !limit || status !== "authenticated" || !token) return;
     setSaving(true);
     try {
       await fetch(`${API_URL}/budgets`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-User-Email": email },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ category, monthly_limit: parseFloat(limit), month, year }),
       });
       const updated = await fetch(`${API_URL}/budgets/status?month=${month}&year=${year}`, {
-        headers: { "Content-Type": "application/json", "X-User-Email": email },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       }).then((r) => r.json());
       setBudgets(Array.isArray(updated) ? updated : []);
       setCategory("");

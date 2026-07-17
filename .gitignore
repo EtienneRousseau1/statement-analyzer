@@ -11,3 +11,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Deployment notes reference live infra endpoints — keep out of the public repo
+DEPLOY.md

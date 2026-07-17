@@ -41,8 +41,8 @@ export default function CategoryTransactionsDialog({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const email = session?.user?.email;
-    if (!open || !category || status !== "authenticated" || !email) {
+    const token = session?.backendToken;
+    if (!open || !category || status !== "authenticated" || !token) {
       setTransactions([]);
       setError(null);
       return;
@@ -62,7 +62,7 @@ export default function CategoryTransactionsDialog({
     fetch(`${API_URL}/transactions?${params}`, {
       headers: {
         "Content-Type": "application/json",
-        "X-User-Email": email,
+        Authorization: `Bearer ${token}`,
       },
     })
       .then(async (r) => {
@@ -78,7 +78,7 @@ export default function CategoryTransactionsDialog({
         setError(err.message || "Failed to load payments");
       })
       .finally(() => setLoading(false));
-  }, [open, category, month, year, transactionType, session?.user?.email, status]);
+  }, [open, category, month, year, transactionType, session?.backendToken, status]);
 
   const total = transactions.reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
 

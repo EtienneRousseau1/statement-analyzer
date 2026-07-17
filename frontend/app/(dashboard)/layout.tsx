@@ -20,7 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const accounts = await getAccounts();
 
   if (accounts.length === 0) {
-    return <AccountSetup userEmail={session.user?.email ?? ""} />;
+    return <AccountSetup backendToken={session.backendToken ?? ""} />;
   }
 
   return (

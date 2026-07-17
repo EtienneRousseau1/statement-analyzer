@@ -1,28 +1,11 @@
 import { auth } from "@/auth";
-import { getToken } from "next-auth/jwt";
-import { headers } from "next/headers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 async function getAuthHeader(): Promise<Record<string, string>> {
-  try {
-    const session = await auth();
-    if (!session?.user?.email) return {};
-    
-    // Get the JWT token from NextAuth
-    const req = { headers: Object.fromEntries(await headers()) } as Parameters<typeof getToken>[0]["req"];
-    const token = await getToken({ 
-      req, 
-      secret: process.env.AUTH_SECRET 
-    });
-    
-    if (!token) return {};
-    
-    // Return the raw token string - NextAuth/JWT already encodes it properly
-    return { "X-User-Email": token.email as string };
-  } catch {
-    return {};
-  }
+  const session = await auth();
+  if (!session?.backendToken) return {};
+  return { Authorization: `Bearer ${session.backendToken}` };
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {

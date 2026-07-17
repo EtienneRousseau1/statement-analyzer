@@ -23,13 +23,13 @@ const CATEGORY_COLORS: Record<string, string> = {
 interface Props {
   transactions: Transaction[];
   apiUrl: string;
-  userEmail: string;
+  backendToken: string;
 }
 
-export default function TransactionTable({ transactions: initial, apiUrl, userEmail }: Props) {
+export default function TransactionTable({ transactions: initial, apiUrl, backendToken }: Props) {
   const [transactions, setTransactions] = useState(initial);
 
-  const authHeader = { "X-User-Email": userEmail };
+  const authHeader = { Authorization: `Bearer ${backendToken}` };
 
   const handleCategoryChange = async (id: number, category: string | null) => {
     if (!category) return;

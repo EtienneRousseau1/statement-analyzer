@@ -13,12 +13,12 @@ async function getAccounts(): Promise<Account[]> {
 
 export default async function AccountsPage() {
   const [accounts, session] = await Promise.all([getAccounts(), auth()]);
-  const userEmail = session?.user?.email ?? "";
+  const backendToken = session?.backendToken ?? "";
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
       <h1 className="text-2xl font-bold text-gray-900">Accounts</h1>
-      <AccountManager initialAccounts={accounts} userEmail={userEmail} />
+      <AccountManager initialAccounts={accounts} backendToken={backendToken} />
     </div>
   );
 }

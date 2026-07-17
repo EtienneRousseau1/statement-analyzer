@@ -15,7 +15,7 @@ async function getTransactions(): Promise<Transaction[]> {
 export default async function TransactionsPage() {
   const [transactions, session] = await Promise.all([getTransactions(), auth()]);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-  const userEmail = session?.user?.email ?? "";
+  const backendToken = session?.backendToken ?? "";
 
   return (
     <div className="flex flex-col gap-6">
@@ -28,7 +28,7 @@ export default async function TransactionsPage() {
           <CardTitle className="text-sm font-semibold text-gray-800">{transactions.length} transactions</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <TransactionTable transactions={transactions} apiUrl={apiUrl} userEmail={userEmail} />
+          <TransactionTable transactions={transactions} apiUrl={apiUrl} backendToken={backendToken} />
         </CardContent>
       </Card>
     </div>

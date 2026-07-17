@@ -9,12 +9,12 @@ interface Props {
   initialStatements: Statement[];
   accounts: Account[];
   apiUrl: string;
-  userEmail: string;
+  backendToken: string;
 }
 
-export default function RecentUploads({ initialStatements, accounts, apiUrl, userEmail }: Props) {
+export default function RecentUploads({ initialStatements, accounts, apiUrl, backendToken }: Props) {
   const [statements, setStatements] = useState(initialStatements);
-  const authHeader = { "X-User-Email": userEmail };
+  const authHeader = { Authorization: `Bearer ${backendToken}` };
 
   const handleReassign = async (id: number, accountId: string) => {
     const res = await fetch(`${apiUrl}/upload/statements/${id}`, {
