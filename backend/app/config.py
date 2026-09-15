@@ -15,7 +15,12 @@ class Settings(BaseSettings):
     )
 
     database_url: str = "postgresql+psycopg://user:password@localhost:5432/statement_analyzer"
-    nextauth_secret: str = "change-me-in-production"
+    # No insecure default: this secret verifies every user's auth token
+    # (see middleware/auth.py). A guessable fallback here would let anyone
+    # forge a JWT for any email address and read/delete any user's
+    # financial data, so startup must fail loudly instead of running with
+    # a known secret.
+    nextauth_secret: str
     google_cloud_project: str = ""
     # Gemini / google-genai settings
     genai_model: str = "gemini-3.1-flash-lite"
