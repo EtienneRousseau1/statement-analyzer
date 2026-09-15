@@ -24,6 +24,16 @@ class PlaidItemOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class SyncResultOut(BaseModel):
+    added: int
+    modified: int
+    removed: int
+    last_synced_at: datetime | None
+    # NOT_READY while Plaid is still assembling the initial history, so the UI
+    # can say "still preparing" instead of "no transactions".
+    update_status: str | None = None
+
+
 class CapacityOut(BaseModel):
     can_connect: bool
     active_items: int

@@ -35,6 +35,19 @@ def get_plaid_client() -> plaid_api.PlaidApi:
     return plaid_api.PlaidApi(plaid.ApiClient(configuration))
 
 
+def optional_field(obj, key):
+    """Read a field the Plaid SDK may leave unset.
+
+    The generated models raise on absent optional attributes rather than
+    returning None, which would turn a missing account mask into a 500.
+    """
+    try:
+        value = obj[key]
+    except Exception:
+        return None
+    return getattr(value, "value", value)
+
+
 def plaid_error_code(exc: plaid.ApiException) -> str:
     """Plaid's machine-readable error code, e.g. ITEM_LOGIN_REQUIRED.
 
