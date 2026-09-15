@@ -31,6 +31,23 @@ class Settings(BaseSettings):
     google_application_credentials_json: str | None = None
     frontend_url: str = "http://localhost:3000"
 
+    # Plaid — live bank connections. Empty client id/secret simply means the
+    # feature is off: the API refuses to start a connection and the UI falls
+    # back to statement uploads.
+    plaid_client_id: str = ""
+    plaid_secret: str = ""
+    plaid_env: str = "sandbox"  # sandbox | production
+    # Where Plaid posts transaction updates. Must be publicly reachable.
+    plaid_webhook_url: str = ""
+    # Must match a URI registered in the Plaid dashboard, or OAuth banks
+    # (Chase, Bank of America) refuse the connection.
+    plaid_redirect_uri: str = ""
+    # Fernet key encrypting stored access tokens. Deliberately separate from
+    # database credentials so one leak isn't enough to use the tokens.
+    plaid_token_encryption_key: str = ""
+    # Plaid's trial plan caps live connections app-wide, not per user.
+    plaid_max_items: int = 10
+
 
 settings = Settings()
 

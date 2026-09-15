@@ -10,3 +10,7 @@ python-jose[cryptography]==3.3.0
 pydantic-settings==2.5.2
 python-dotenv==1.0.1
 google-genai>=0.10.0
+plaid-python>=20.0.0
+# Fernet, for encrypting stored Plaid access tokens. Declared explicitly
+# rather than leaned on as a python-jose extra.
+cryptography>=43.0.0

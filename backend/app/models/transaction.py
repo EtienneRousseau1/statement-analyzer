@@ -14,7 +14,12 @@ CATEGORIES = [
     "Health",
     "Travel",
     "Subscriptions",
+    "Rent",
     "Income",
+    # Money moved between the user's own accounts (card payments, transfers).
+    # Excluded from spending totals so a card payment isn't counted once in
+    # checking and again as the charges it settles.
+    "Transfers",
     "Other",
 ]
 
@@ -33,6 +38,13 @@ class Transaction(Base):
     category: Mapped[str] = mapped_column(String(100), default="Other")
     raw_category: Mapped[str | None] = mapped_column(String(100))  # original from Claude
     confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
+    source: Mapped[str] = mapped_column(String(20), default="upload")  # upload, plaid
+    plaid_transaction_id: Mapped[str | None] = mapped_column(String(255), unique=True)
+    # Plaid reports a transaction as pending, then re-reports it as posted.
+    pending: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Set when a user recategorizes by hand, so later Plaid updates to this
+    # transaction don't silently overwrite their choice.
+    category_overridden: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
