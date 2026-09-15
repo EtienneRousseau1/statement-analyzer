@@ -16,8 +16,14 @@ from ..middleware.auth import get_current_user
 from ..models.account import Account
 from ..models.plaid_item import PlaidItem
 from ..models.user import User
-from ..schemas.plaid import CapacityOut, ExchangeIn, LinkTokenOut, PlaidItemOut
-from ..services.plaid_client import get_plaid_client, plaid_enabled, plaid_error_code
+from ..schemas.plaid import CapacityOut, ExchangeIn, LinkTokenOut, PlaidItemOut, SyncResultOut
+from ..services.plaid_client import (
+    get_plaid_client,
+    optional_field,
+    plaid_enabled,
+    plaid_error_code,
+)
+from ..services.plaid_sync import ItemNeedsReauth, SyncFailed, sync_item
 from ..services.token_crypto import decrypt_token, encrypt_token
 
 router = APIRouter(prefix="/plaid", tags=["plaid"])
@@ -27,19 +33,6 @@ router = APIRouter(prefix="/plaid", tags=["plaid"])
 LIVE_STATUSES = ("active", "login_required")
 
 _US = [CountryCode("US")]
-
-
-def _optional(obj, key):
-    """Read a field the Plaid SDK may leave unset.
-
-    The generated models raise on absent optional attributes rather than
-    returning None, which would turn a missing account mask into a 500.
-    """
-    try:
-        value = obj[key]
-    except Exception:
-        return None
-    return getattr(value, "value", value)
 
 
 # Depository subtypes that hold money rather than spend it. Everything else
@@ -194,13 +187,13 @@ def exchange_public_token(
             detail=f"Connected, but couldn't read accounts ({plaid_error_code(exc)})",
         )
 
-    item.institution_id = _optional(accounts_response["item"], "institution_id")
+    item.institution_id = optional_field(accounts_response["item"], "institution_id")
     item.institution_name = _lookup_institution_name(client, item.institution_id)
     db.flush()  # assigns item.id for the account rows below
 
     for plaid_account in accounts_response["accounts"]:
         account_type = _map_account_type(
-            _optional(plaid_account, "type"), _optional(plaid_account, "subtype")
+            optional_field(plaid_account, "type"), optional_field(plaid_account, "subtype")
         )
         if account_type is None:
             continue
@@ -217,7 +210,7 @@ def exchange_public_token(
         account.name = plaid_account["name"]
         account.account_type = account_type
         account.institution = item.institution_name
-        account.last_four = _optional(plaid_account, "mask")
+        account.last_four = optional_field(plaid_account, "mask")
 
     db.commit()
     db.refresh(item)
@@ -235,6 +228,45 @@ def list_items(
         .order_by(PlaidItem.created_at.desc())
         .all()
     )
+
+
+@router.post("/items/{item_id}/sync", response_model=SyncResultOut)
+def sync_now(
+    item_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Pull transactions on demand.
+
+    The Fly machine stops when idle, so there's no background scheduler to lean
+    on; updates arrive either through this or the Plaid webhook.
+    """
+    _require_enabled()
+    item = (
+        db.query(PlaidItem)
+        .filter(PlaidItem.id == item_id, PlaidItem.user_id == current_user.id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connection not found")
+    if item.status == "disconnected":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This connection was disconnected. Reconnect the bank to resume syncing.",
+        )
+
+    try:
+        counts = sync_item(db, item.id)
+    except ItemNeedsReauth:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This bank needs to be reconnected before it can sync again.",
+        )
+    except SyncFailed as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+
+    db.refresh(item)
+    return SyncResultOut(**counts, last_synced_at=item.last_synced_at)
 
 
 @router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
