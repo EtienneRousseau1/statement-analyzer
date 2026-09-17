@@ -32,6 +32,17 @@ async def upload_statement(
     account = db.query(Account).filter(Account.id == account_id, Account.user_id == current_user.id).first()
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
+    if account.plaid_item_id is not None:
+        # This account already receives transactions from the bank directly.
+        # A statement covering the same period would import every transaction
+        # a second time, and the two sources share no id to dedupe against.
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This account syncs with your bank automatically, so uploading a "
+                "statement would duplicate its transactions."
+            ),
+        )
 
     file_bytes = await file.read()
     if len(file_bytes) > MAX_FILE_SIZE:

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..middleware.auth import get_current_user
 from ..models.user import User
-from ..models.transaction import Transaction
+from ..models.transaction import SPEND_EXCLUDED_CATEGORIES, Transaction
 from ..models.account import Account
 from pydantic import BaseModel
 
@@ -46,9 +46,13 @@ def summary(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # This endpoint reports spending and income; transfers between the user's
+    # own accounts are neither, so they're excluded here rather than at each
+    # aggregate below. They remain visible on the transactions page.
     all_confirmed = db.query(Transaction).filter(
         Transaction.user_id == current_user.id,
         Transaction.confirmed.is_(True),
+        Transaction.category.notin_(SPEND_EXCLUDED_CATEGORIES),
     )
 
     month_base = all_confirmed.filter(
@@ -113,6 +117,7 @@ def summary(
             Transaction.user_id == current_user.id,
             Transaction.confirmed.is_(True),
             Transaction.transaction_type == "debit",
+            Transaction.category.notin_(SPEND_EXCLUDED_CATEGORIES),
         )
         .group_by("yr", "mo")
         .all()
@@ -128,6 +133,7 @@ def summary(
             Transaction.user_id == current_user.id,
             Transaction.confirmed.is_(True),
             Transaction.transaction_type == "credit",
+            Transaction.category.notin_(SPEND_EXCLUDED_CATEGORIES),
         )
         .group_by("yr", "mo")
         .all()

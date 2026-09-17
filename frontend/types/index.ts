@@ -98,6 +98,7 @@ export const CATEGORIES = [
   "Subscriptions",
   "Rent",
   "Income",
+  "Transfers",
   "Other",
 ] as const;
 

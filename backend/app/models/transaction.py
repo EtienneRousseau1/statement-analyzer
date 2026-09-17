@@ -23,6 +23,11 @@ CATEGORIES = [
     "Other",
 ]
 
+# Categories that represent money moving between a user's own accounts rather
+# than entering or leaving their finances. Summing them as spending counts a
+# card payment twice: once leaving checking, again as the charges it settles.
+SPEND_EXCLUDED_CATEGORIES = ("Transfers",)
+
 
 class Transaction(Base):
     __tablename__ = "transactions"

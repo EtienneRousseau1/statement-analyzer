@@ -88,6 +88,9 @@ def budget_status(
                 Transaction.user_id == current_user.id,
                 Transaction.category == budget.category,
                 Transaction.transaction_type == "debit",
+                # The dashboard has always counted only confirmed rows; budget
+                # progress didn't, so unconfirmed uploads inflated it.
+                Transaction.confirmed.is_(True),
                 func.extract("month", Transaction.date) == month,
                 func.extract("year", Transaction.date) == year,
             )

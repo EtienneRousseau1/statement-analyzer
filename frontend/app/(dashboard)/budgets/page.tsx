@@ -79,7 +79,7 @@ export default function BudgetsPage() {
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.filter((c) => c !== "Income").map((c) => (
+                  {CATEGORIES.filter((c) => c !== "Income" && c !== "Transfers").map((c) => (
                     <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
                 </SelectContent>
